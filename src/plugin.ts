@@ -128,8 +128,6 @@ function toRegisteredTool(spec: ToolSpec) {
 
 /** Single tool context per plugin mount (module-scoped, set by apply). */
 let context: ReturnType<typeof createToolContext> | undefined
-/** Lazily-created extension bridge (one per plugin mount). */
-let extensionBridgeInstance: any = null
 
 export function apply(ctx: any, rawConfig?: PluginConfig | null) {
   // The cordis loader passes `null` for an entry mounted without an explicit
@@ -145,27 +143,17 @@ export function apply(ctx: any, rawConfig?: PluginConfig | null) {
   const transport =
     config.transport === 'extension' || config.transport === 'cdp' ? config.transport : 'auto'
 
+  // IMPORTANT: do NOT supply getExtensionBridge here. createToolContext owns
+  // that implementation, and its version is the one that actually calls
+  // bridge.start() — providing a look-alike from the entry point silently
+  // replaced it with a bridge that was constructed but never listened, so the
+  // extension could never connect. The entry point only supplies CONFIG.
   context = createToolContext({
     host,
     port,
     autoLaunchChrome: config.autoLaunchChrome !== false,
     transport,
-    getExtensionBridge:
-      extensionPort === 0
-        ? async () => null
-        : async () => {
-            try {
-              const mod = (await import('./extension/index.js')) as any
-              if (extensionBridgeInstance === null && mod?.ExtensionBridge) {
-                extensionBridgeInstance = new mod.ExtensionBridge({ port: extensionPort })
-              }
-              return extensionBridgeInstance ?? null
-            } catch {
-              // Extension transport unavailable (module missing / not built):
-              // degrade to CDP rather than failing the plugin.
-              return null
-            }
-          },
+    extensionPort,
   })
 
   const disposers: Array<() => void> = []
@@ -182,13 +170,6 @@ export function apply(ctx: any, rawConfig?: PluginConfig | null) {
           // best-effort teardown
         }
       })
-      // Stop the extension bridge so the loopback port is released on unload.
-      try {
-        extensionBridgeInstance?.stop?.()
-      } catch {
-        // best-effort teardown
-      }
-      extensionBridgeInstance = null
       context = undefined
     },
     'ga-browser-bridge: tools',

@@ -32,6 +32,11 @@ export interface ToolContext {
   getExtensionBridge?(): Promise<ExtensionBridgeLike | null>;
   /** Force a transport for testing: 'extension' | 'cdp' | 'auto' (default 'auto'). */
   transport?: 'extension' | 'cdp' | 'auto';
+  /**
+   * Loopback port the extension dials in to. 0 disables the extension
+   * transport. Defaults to DSH_BROWSER_EXT_PORT or 18789.
+   */
+  extensionPort?: number;
 }
 
 export interface ToolSpec {
@@ -82,7 +87,12 @@ export function createToolContext(overrides?: Partial<ToolContext>): ToolContext
           // port, so parallel suites produce dozens of EADDRINUSE warnings
           // for a transport they are not testing. Opt in explicitly instead.
           if (typeof process !== 'undefined' && process.env?.JEST_WORKER_ID) return null;
-          const port = portFromEnv('DSH_BROWSER_EXT_PORT', DEFAULT_EXTENSION_PORT);
+          // The plugin entry passes extensionPort from its own config; fall
+          // back to the env override and finally the built-in default.
+          const port =
+            typeof ctx.extensionPort === 'number'
+              ? ctx.extensionPort
+              : portFromEnv('DSH_BROWSER_EXT_PORT', DEFAULT_EXTENSION_PORT);
           if (!Number.isInteger(port) || port <= 0) return null;
           // Dynamic import keeps this optional: a missing/partial extension
           // build is a resolved null, not a module-load crash.

@@ -110,7 +110,12 @@ export type RouteDecision = {
     error?: undefined;
 } | {
     bridge: null;
-    error?: undefined;
+    /**
+     * Set when the requested transport is unusable for a reason the user
+     * must act on (e.g. the extension is installed but disconnected).
+     * Callers return this string verbatim instead of falling back to CDP.
+     */
+    error?: string;
 };
 export declare function routeTransport(ctx: ToolContext): Promise<RouteDecision>;
 /**

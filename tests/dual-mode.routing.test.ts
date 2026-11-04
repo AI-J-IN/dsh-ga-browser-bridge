@@ -201,16 +201,25 @@ describe('dual-mode routing: no bridge (backward compatibility)', () => {
     expect(JSON.parse(out).count).toBe(2);
   });
 
-  test('auto mode with a DISCONNECTED bridge falls back to CDP', async () => {
+  test('auto mode with a DISCONNECTED bridge reports the extension, NOT a fallback', async () => {
+    // CONTRACT CHANGE (external bug report, issue 2). A bridge that exists but
+    // has no connected extension means the user DID install the extension and
+    // it is not talking to us. Silently falling back to CDP made the user read
+    // "Chrome is already running without a debug port", and closing Chrome —
+    // exactly what that message instructs — never helped. Report the real
+    // cause, and do not touch either transport.
     const conn = cdpWithTwoTabs();
     const bridge = new FakeExtensionBridge();
     bridge.connected = false;
     bridge.tabs = extTabs();
     const ctx = ctxWith(conn, bridge);
     const out = await call('browser_tabs', { action: 'list' }, ctx);
-    expect(JSON.parse(out).tabs[0].id).toBe('1');
-    // The disconnected bridge must not have been used.
+    expect(out.startsWith('[error]')).toBe(true);
+    expect(out).toMatch(/extension/i);
+    expect(out).toMatch(/not connected/i);
+    expect(out).not.toMatch(/already running without a debug port/i);
     expect(bridge.calls.filter((c) => c.method === 'tabs.list')).toHaveLength(0);
+    expect(conn.ops).toHaveLength(0);
   });
 });
 

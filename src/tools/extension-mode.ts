@@ -120,7 +120,15 @@ export interface ExtensionBridgeLike {
  */
 export type RouteDecision =
   | { bridge: ExtensionBridgeLike; error?: undefined }
-  | { bridge: null; error?: undefined };
+  | {
+      bridge: null;
+      /**
+       * Set when the requested transport is unusable for a reason the user
+       * must act on (e.g. the extension is installed but disconnected).
+       * Callers return this string verbatim instead of falling back to CDP.
+       */
+      error?: string;
+    };
 
 /** Log prefix for every diagnostic this module emits. */
 const LOG_PREFIX = '[tools/extension-mode]';
@@ -180,14 +188,34 @@ export async function routeTransport(ctx: ToolContext): Promise<RouteDecision> {
   // user silently lands on the CDP path and, if the debug port is closed,
   // reads a confusing "Chrome is already running without a debug port" error
   // that has nothing to do with the real cause.
+  // In 'auto' mode a bridge that EXISTS but has no connected extension means
+  // the user DID install the extension but it is not talking to us (MV3 worker
+  // asleep, browser restarted, wrong port). Falling through to CDP here is the
+  // most confusing failure this plugin has: with the debug port also closed,
+  // the user is told "Chrome is already running without a debug port" and
+  // closing Chrome — exactly what that message says to do — never helps.
+  // Report the real cause instead. A machine that never installed the
+  // extension has no bridge at all, and there the silent CDP fallback stays
+  // correct.
   if (mode === 'auto' && bridge) {
     warnOnce(
       'extension-transport-idle',
-      'An extension bridge exists but no extension is connected, so tools are ' +
-        'using the CDP debug port. If you expected the extension transport, ' +
-        'open the extension options page (status should read Connected) — the ' +
-        'MV3 service worker may be asleep or the port may differ.',
+      'An extension bridge exists but no extension is connected; tools now ' +
+        'report that instead of silently falling back to the CDP debug port.',
     );
+    return {
+      bridge: null,
+      error: errPrefix(
+        'The DSH Browser Bridge extension is installed but NOT connected, so the ' +
+        'extension transport cannot be used. This is not a debug-port problem. ' +
+        'Fix: open chrome://extensions -> DSH Browser Bridge -> Details -> ' +
+        'Extension options and check the status reads Connected; if it does not, ' +
+        'make sure DSH is running with this plugin mounted (the loopback listener ' +
+        'must exist), that the port matches extensionPort, and click the extension ' +
+        'icon to wake its service worker. Set transport: "cdp" to deliberately ' +
+        'ignore the extension.',
+      ),
+    };
   }
 
   if (mode === 'extension') {

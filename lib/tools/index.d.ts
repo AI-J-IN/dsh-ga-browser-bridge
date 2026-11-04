@@ -25,6 +25,11 @@ export interface ToolContext {
     getExtensionBridge?(): Promise<ExtensionBridgeLike | null>;
     /** Force a transport for testing: 'extension' | 'cdp' | 'auto' (default 'auto'). */
     transport?: 'extension' | 'cdp' | 'auto';
+    /**
+     * Loopback port the extension dials in to. 0 disables the extension
+     * transport. Defaults to DSH_BROWSER_EXT_PORT or 18789.
+     */
+    extensionPort?: number;
 }
 export interface ToolSpec {
     name: string;
