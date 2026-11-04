@@ -30,7 +30,7 @@
 // ---------------------------------------------------------------------------
 
 const EXTENSION_PROTOCOL_VERSION = 1
-const EXTENSION_DEFAULT_PORT = 18765
+const EXTENSION_DEFAULT_PORT = 18789
 const EXTENSION_DEFAULT_HOST = '127.0.0.1'
 const EXTENSION_VERSION = '0.1.0'
 

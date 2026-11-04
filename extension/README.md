@@ -19,7 +19,7 @@ The extension is the **client**. A service worker cannot listen on a TCP port,
 but it can open a WebSocket connection, so it dials **out**:
 
 ```
-DSH plugin (Node) listens on ws://127.0.0.1:18765
+DSH plugin (Node) listens on ws://127.0.0.1:18789
         ▲
         │  the extension dials out (hello, then JSON-RPC requests/responses)
         │
@@ -28,7 +28,7 @@ Chrome MV3 service worker ── chrome.debugger ──► the tab you are looki
 
 The contract lives in [`../src/extension/protocol.ts`](../src/extension/protocol.ts)
 (message shapes, method names, result shapes, protocol version 1, default port
-18765). This extension implements that contract and nothing else.
+18789). This extension implements that contract and nothing else.
 
 ## Load it
 
@@ -38,7 +38,7 @@ The contract lives in [`../src/extension/protocol.ts`](../src/extension/protocol
 4. Pin the extension if you like; the toolbar badge shows `!` while
    disconnected and is empty while connected.
 5. Click **Details → Extension options** to confirm host/port. Defaults are
-   `127.0.0.1` and `18765`. Save only if your plugin runs elsewhere; the worker
+   `127.0.0.1` and `18789`. Save only if your plugin runs elsewhere; the worker
    reconnects as soon as the setting changes.
 
 Then start the plugin / DSH. The options page status line shows
@@ -114,7 +114,7 @@ window, with a **Cancel** link.
 
 | Symptom | Check |
 | --- | --- |
-| Status line stays "Disconnected" | Is the plugin running and listening on the configured port? Default `18765`. Try `Reconnect now`. |
+| Status line stays "Disconnected" | Is the plugin running and listening on the configured port? Default `18789`. Try `Reconnect now`. |
 | `ATTACH_FAILED` mentioning DevTools | Close DevTools for that tab. |
 | Attach fails only on some tabs | `chrome://` / Web Store / extension pages cannot be debugged. |
 | Works, then drops after ~30s idle | Expected MV3 behaviour; it reconnects on demand. |

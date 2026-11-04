@@ -45,7 +45,7 @@ const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 9222;
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** Loopback port the extension dials; override with DSH_BROWSER_EXT_PORT. */
-const DEFAULT_EXTENSION_PORT = 18765;
+const DEFAULT_EXTENSION_PORT = 18789;
 
 /** Read a positive integer env override, else fall back to `dflt`. */
 function portFromEnv(name: string, dflt: number): number {
@@ -76,7 +76,7 @@ export function createToolContext(overrides?: Partial<ToolContext>): ToolContext
         try {
           // Never start the loopback listener for a caller that forced CDP or
           // disabled the extension (port 0): it would only burn the port and
-          // make parallel test suites fight over 18765. Check before importing.
+          // make parallel test suites fight over 18789. Check before importing.
           if (ctx.transport === 'cdp') return null;
           // Under jest every tool call would try to bind the real loopback
           // port, so parallel suites produce dozens of EADDRINUSE warnings

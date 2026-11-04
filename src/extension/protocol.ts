@@ -34,7 +34,7 @@
 export const EXTENSION_PROTOCOL_VERSION = 1
 
 /** Default loopback port the plugin listens on for the extension. */
-export const EXTENSION_DEFAULT_PORT = 18765
+export const EXTENSION_DEFAULT_PORT = 18789
 
 /** How long a single extension round-trip may take (ms). */
 export const EXTENSION_REQUEST_TIMEOUT_MS = 30_000

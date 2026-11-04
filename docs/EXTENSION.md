@@ -43,7 +43,7 @@ Chromium-based browsers work the same way (`edge://extensions`,
 
 ## 2. Check the connection
 
-The plugin listens on `127.0.0.1:18765` (configurable, see below). The
+The plugin listens on `127.0.0.1:18789` (configurable, see below). The
 extension dials **out** to it, so there is nothing to port-forward and no
 inbound firewall rule to add.
 
@@ -81,7 +81,7 @@ Plugin side (`cordis.patch.yml`):
       name: dsh-ga-browser-bridge
       config:
         transport: auto        # auto | extension | cdp
-        extensionPort: 18765   # 0 disables the extension transport
+        extensionPort: 18789   # 0 disables the extension transport
 ```
 
 - `auto` (default) — use the extension when it is connected, fall back to the

@@ -32,7 +32,7 @@ export interface PluginConfig {
   autoLaunchChrome?: boolean
   /**
    * Loopback port the plugin listens on so the DSH Browser Bridge Chrome
-   * extension can connect. Default 18765. Set to 0 to disable the
+   * extension can connect. Default 18789. Set to 0 to disable the
    * extension transport entirely (CDP-only mode).
    */
   extensionPort?: number
@@ -47,7 +47,7 @@ export interface PluginConfig {
 
 const DEFAULT_HOST = '127.0.0.1'
 const DEFAULT_PORT = 9222
-const DEFAULT_EXTENSION_PORT = 18765
+const DEFAULT_EXTENSION_PORT = 18789
 
 /** Render a tool result for DSH: plain text content block. */
 const stringOutput = {

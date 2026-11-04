@@ -175,7 +175,7 @@ async function withFreePort(body: (port: number) => Promise<void>): Promise<void
 describe('A. extension protocol contract', () => {
   it('1. pins the protocol version and default port', () => {
     expect(EXTENSION_PROTOCOL_VERSION).toBe(1)
-    expect(EXTENSION_DEFAULT_PORT).toBe(18765)
+    expect(EXTENSION_DEFAULT_PORT).toBe(18789)
   })
 
   describe('2. isRequest', () => {

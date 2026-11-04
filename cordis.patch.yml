@@ -24,7 +24,7 @@
         # ── Extension transport ──────────────────────────────────────────
         # Loopback port this plugin listens on; the "DSH Browser Bridge"
         # extension dials in to it. Set to 0 to disable the extension.
-        # extensionPort: 18765
+        # extensionPort: 18789
 
         # ── CDP transport (fallback / headless) ──────────────────────────
         # host: '127.0.0.1'

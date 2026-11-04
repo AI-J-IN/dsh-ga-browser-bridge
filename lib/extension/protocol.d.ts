@@ -32,7 +32,7 @@
 /** Protocol version. Bump on any breaking change; both sides check it. */
 export declare const EXTENSION_PROTOCOL_VERSION = 1;
 /** Default loopback port the plugin listens on for the extension. */
-export declare const EXTENSION_DEFAULT_PORT = 18765;
+export declare const EXTENSION_DEFAULT_PORT = 18789;
 /** How long a single extension round-trip may take (ms). */
 export declare const EXTENSION_REQUEST_TIMEOUT_MS = 30000;
 export type ExtensionRequest = {

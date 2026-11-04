@@ -451,7 +451,7 @@ async function connected() {
   await flush()
   const ws = env.sockets[0]
   assert.ok(ws, 'worker must attempt at least one WebSocket connection on load')
-  assert.equal(ws.url, 'ws://127.0.0.1:18765', 'default URL must be ws://127.0.0.1:18765')
+  assert.equal(ws.url, 'ws://127.0.0.1:18789', 'default URL must be ws://127.0.0.1:18789')
   ws._open()
   await flush()
   return { ...env, ws }
@@ -497,7 +497,7 @@ async function request(env, req, opts = {}) {
 // TESTS — contract: connection + handshake
 // ===========================================================================
 
-test('worker connects to ws://127.0.0.1:18765 by default and sends hello event on open', async () => {
+test('worker connects to ws://127.0.0.1:18789 by default and sends hello event on open', async () => {
   const env = await connected()
   const events = eventFrames(env.ws)
   const hello = events.find((e) => e.method === 'hello')

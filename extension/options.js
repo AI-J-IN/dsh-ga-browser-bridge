@@ -8,7 +8,7 @@
 'use strict'
 
 const DEFAULT_HOST = '127.0.0.1'
-const DEFAULT_PORT = 18765
+const DEFAULT_PORT = 18789
 
 const $host = document.getElementById('host')
 const $port = document.getElementById('port')
