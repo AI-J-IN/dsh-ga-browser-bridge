@@ -28,6 +28,27 @@ export class LaunchError extends Error {
 export const DEFAULT_DEBUG_PORT = 9222;
 
 /**
+ * Env override for the debug port (README-documented). Returns undefined
+ * when unset or unparseable so callers can fall back to their own default.
+ */
+export function envPort(): number | undefined {
+  const v = process.env["DSH_BROWSER_PORT"]
+  if (!v || !v.trim()) return undefined
+  const n = parseInt(v, 10)
+  return Number.isInteger(n) && n > 0 && n < 65536 ? n : undefined
+}
+
+/**
+ * Env override for a separate Chrome profile dir (README-documented).
+ * A custom profile does NOT conflict with the default profile lock, so
+ * callers use its presence to skip the "browser already running" guard.
+ */
+export function envUserDataDir(): string | undefined {
+  const v = process.env["DSH_BROWSER_USER_DATA_DIR"]
+  return v && v.trim() ? v.trim() : undefined
+}
+
+/**
  * Environment overrides for the browser executable, checked in order.
  */
 const BROWSER_PATH_ENV_VARS = ["CHROME_PATH", "DSH_BROWSER_PATH"];
@@ -291,27 +312,41 @@ export interface EnsureDebugChromeResult {
 /**
  * Ensure a debuggable Chrome is listening on 127.0.0.1:port.
  *
+ * Env fallbacks (README-documented): when `port` is not supplied (or is
+ * undefined), DSH_BROWSER_PORT is consulted next; when `userDataDir` is not
+ * supplied, DSH_BROWSER_USER_DATA_DIR is consulted next. Explicit arguments
+ * always win over the env overrides.
+ *
  * Decision table (mirrors br_mcp.py behavior):
  *  1. Port already open  -> reuse it (alreadyRunning=true, launched=false).
  *     We never spawn when a debug port is already listening.
- *  2. Port closed AND a Chrome process is running -> the running Chrome holds
- *     the profile lock; a second instance with the same user-data-dir would
- *     just hand off to it and never open the debug port. Throws LaunchError
+ *  2. Port closed AND a Chrome process is running AND no custom profile is
+ *     in play (default-profile reuse) -> the running Chrome holds the
+ *     profile lock; a second instance with the same user-data-dir would just
+ *     hand off to it and never open the debug port. Throws LaunchError
  *     telling the user to close Chrome or set DSH_BROWSER_USER_DATA_DIR. We
  *     never kill any process.
- *  3. Port closed AND no Chrome running -> launch Chrome with
- *     --remote-debugging-port=<port> --remote-debugging-address=127.0.0.1,
- *     --no-first-run --no-default-browser-check. For the DEFAULT profile we
- *     pass NO --user-data-dir so the real profile (login state) is used; a
- *     custom userDataDir is passed explicitly. The child is spawned detached
- *     with ignored stdio and unref()'d so plugin exit does not kill it.
+ *     SKIPPED when a custom profile IS in play: an explicit userDataDir
+ *     argument OR a DSH_BROWSER_USER_DATA_DIR env override means we launch
+ *     with a SEPARATE user-data-dir, which does not conflict with the
+ *     default profile lock - the user's default Chrome may keep running.
+ *     Fall through to step 3.
+ *  3. Port closed AND (no Chrome running OR custom profile in play) ->
+ *     launch Chrome with --remote-debugging-port=<port>
+ *     --remote-debugging-address=127.0.0.1, --no-first-run
+ *     --no-default-browser-check. For the DEFAULT profile we pass NO
+ *     --user-data-dir so the real profile (login state) is used; a custom
+ *     userDataDir is passed explicitly. The child is spawned detached with
+ *     ignored stdio and unref()'d so plugin exit does not kill it.
  *
  * After spawn we poll isDebugPortOpen for up to 20s, then GET /json/version
  * for up to 10s more. On failure we throw LaunchError whose message includes
  * the exact command the user can run manually.
  *
- * @param port - Debug port (default 9222).
- * @param userDataDir - Custom profile dir; when omitted the OS default
+ * @param port - Debug port (default 9222; DSH_BROWSER_PORT env is the
+ *   fallback when omitted/undefined).
+ * @param userDataDir - Custom profile dir; when omitted the
+ *   DSH_BROWSER_USER_DATA_DIR env override is consulted, then the OS default
  *   profile is reused so login state is preserved.
  * @returns Result describing what happened.
  */
@@ -320,14 +355,18 @@ export async function ensureDebugChrome(
   userDataDir?: string,
 ): Promise<EnsureDebugChromeResult> {
   const host = "127.0.0.1";
+  const effectivePort = port ?? envPort() ?? DEFAULT_DEBUG_PORT;
+  // Custom profile (explicit arg or DSH_BROWSER_USER_DATA_DIR env) does not
+  // conflict with the default profile lock — see branch 2 below.
+  const argOrEnvUserDataDir = userDataDir ?? envUserDataDir();
 
   // 1) Already running with a debug port -> reuse, do NOT spawn.
-  if (await isDebugPortOpen(port, host)) {
+  if (await isDebugPortOpen(effectivePort, host)) {
     return {
       alreadyRunning: true,
       launched: false,
-      port,
-      userDataDir: userDataDir ?? defaultUserDataDir(),
+      port: effectivePort,
+      userDataDir: argOrEnvUserDataDir ?? defaultUserDataDir(),
     };
   }
 
@@ -340,8 +379,13 @@ export async function ensureDebugChrome(
   }
 
   // 2) Port closed but a browser process is alive: profile lock means a new
-  //    instance would hand off to it and never open the debug port.
-  if (isBrowserProcessRunning()) {
+  //    instance would hand off to it and never open the debug port. Only a
+  //    problem when reusing the DEFAULT profile; a custom profile dir
+  //    (explicit arg or DSH_BROWSER_USER_DATA_DIR env) coexists with the
+  //    running browser, so the guard is skipped in that case.
+  const usingCustomProfile =
+    argOrEnvUserDataDir !== undefined && argOrEnvUserDataDir.trim().length > 0;
+  if (!usingCustomProfile && isBrowserProcessRunning()) {
     throw new LaunchError(
       "Chrome is already running without a debug port. Close all Chrome windows " +
         "and retry (or set DSH_BROWSER_USER_DATA_DIR to a separate profile). " +
@@ -350,27 +394,25 @@ export async function ensureDebugChrome(
   }
 
   // 3) Launch a fresh debug instance.
-  const usingCustomProfile =
-    userDataDir !== undefined && userDataDir.trim().length > 0;
   const effectiveUserDataDir = usingCustomProfile
-    ? (userDataDir as string)
+    ? (argOrEnvUserDataDir as string)
     : defaultUserDataDir();
 
   const args: string[] = [
-    `--remote-debugging-port=${port}`,
+    `--remote-debugging-port=${effectivePort}`,
     "--remote-debugging-address=127.0.0.1",
     "--no-first-run",
     "--no-default-browser-check",
   ];
   if (usingCustomProfile) {
-    args.push(`--user-data-dir=${userDataDir}`);
+    args.push(`--user-data-dir=${effectiveUserDataDir}`);
   }
   // NOTE: for the DEFAULT profile case we deliberately pass NO --user-data-dir
   // so Chrome uses the real profile and preserves login state.
 
   const manualCommand = manualLaunchCommand(
     browser.path,
-    port,
+    effectivePort,
     usingCustomProfile ? effectiveUserDataDir : undefined,
   );
 
@@ -417,7 +459,7 @@ export async function ensureDebugChrome(
   const portDeadline = Date.now() + 20000;
   let portOpen = false;
   while (Date.now() < portDeadline) {
-    if (await isDebugPortOpen(port, host)) {
+    if (await isDebugPortOpen(effectivePort, host)) {
       portOpen = true;
       break;
     }
@@ -426,7 +468,7 @@ export async function ensureDebugChrome(
   if (!portOpen) {
     killSpawnedChild();
     throw new LaunchError(
-      `Chrome was launched but the debug port ${port} never opened (waited 20s).\n` +
+      `Chrome was launched but the debug port ${effectivePort} never opened (waited 20s).\n` +
         `To launch manually, run:\n  ${manualCommand}`,
     );
   }
@@ -436,14 +478,14 @@ export async function ensureDebugChrome(
   const versionDeadline = Date.now() + 10000;
   for (;;) {
     try {
-      const res = await fetch(`http://${host}:${port}/json/version`, {
+      const res = await fetch(`http://${host}:${effectivePort}/json/version`, {
         signal: AbortSignal.timeout(1000),
       });
       if (res.ok) {
         return {
           alreadyRunning: false,
           launched: true,
-          port,
+          port: effectivePort,
           userDataDir: effectiveUserDataDir,
         };
       }
@@ -453,7 +495,7 @@ export async function ensureDebugChrome(
     if (Date.now() >= versionDeadline) {
       killSpawnedChild();
       throw new LaunchError(
-        `Chrome debug port ${port} is open but /json/version never answered ` +
+        `Chrome debug port ${effectivePort} is open but /json/version never answered ` +
           `(waited 10s).\nTo launch manually, run:\n  ${manualCommand}`,
       );
     }

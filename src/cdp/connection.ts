@@ -29,7 +29,14 @@ import {
   newTab,
 } from "./json.js";
 import { CdpHttpError } from "./json.js";
-import { ensureDebugChrome, isDebugPortOpen, LaunchError } from "./launcher.js";
+import {
+  DEFAULT_DEBUG_PORT,
+  ensureDebugChrome,
+  envPort,
+  envUserDataDir,
+  isDebugPortOpen,
+  LaunchError,
+} from "./launcher.js";
 import type { CdpClientOptions, CdpEventCallback, CdpTarget } from "./types.js";
 
 /** Default per-command WebSocket timeout (ms). */
@@ -164,6 +171,10 @@ export class TargetSession {
  * it probes the TCP debug port, and when autoLaunch is enabled (default) and
  * the port is closed it launches Chrome (reusing the default profile so
  * login state is preserved) before connecting.
+ *
+ * Env overrides (README-documented): DSH_BROWSER_PORT applies as the port
+ * fallback when neither options.port nor the positional port is given;
+ * DSH_BROWSER_USER_DATA_DIR flows into the auto-launch as a custom profile.
  */
 export class CdpConnection {
   private readonly host: string;
@@ -199,7 +210,9 @@ export class CdpConnection {
    */
   constructor(host: string, port: number, options?: CdpClientOptions) {
     this.host = options?.host ?? host;
-    this.port = options?.port ?? port;
+    // Env fallback (README-documented): explicit options.port or positional
+    // port win; DSH_BROWSER_PORT applies only when neither is given.
+    this.port = options?.port ?? port ?? envPort() ?? DEFAULT_DEBUG_PORT;
     this.defaultTimeoutMs = options?.timeoutMs ?? DEFAULT_WS_TIMEOUT_MS;
     this.autoLaunch = options?.autoLaunch !== false;
   }
@@ -246,7 +259,9 @@ export class CdpConnection {
       }
       log(`debug port ${this.host}:${this.port} closed; launching Chrome`);
       // LaunchError propagates to the caller unchanged.
-      await ensureDebugChrome(this.port);
+      // DSH_BROWSER_USER_DATA_DIR (env) flows through as a custom profile,
+      // which skips the default-profile running-browser guard.
+      await ensureDebugChrome(this.port, envUserDataDir());
     }
 
     this.opening = this.connectBrowserSocket();

@@ -7,7 +7,8 @@
  * public name exactly once:
  *  - connection.js : CdpConnection, TargetSession, CdpError
  *  - launcher.js   : LaunchError, findBrowser, isDebugPortOpen,
- *                    ensureDebugChrome (+ EnsureDebugChromeResult, LaunchResult,
+ *                    ensureDebugChrome, envPort, envUserDataDir
+ *                    (+ EnsureDebugChromeResult, LaunchResult,
  *                    DEFAULT_DEBUG_PORT)
  *  - json.js       : CdpHttpError, fetchJson, getVersion, listTargets,
  *                    newTab, closeTarget, activateTarget
@@ -21,6 +22,8 @@ export {
   findBrowser,
   isDebugPortOpen,
   ensureDebugChrome,
+  envPort,
+  envUserDataDir,
   DEFAULT_DEBUG_PORT,
 } from "./launcher.js";
 export type { EnsureDebugChromeResult, LaunchResult } from "./launcher.js";

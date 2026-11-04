@@ -18,9 +18,10 @@ talks CDP to the Chrome you already use.
 > the approach and defined the `browser_*` tool contract this plugin keeps
 > byte-compatible. Thanks to the GA project for the foundation.
 
+> **中文文档**: [README.zh.md](./README.zh.md)
+
 ---
 
-## English
 
 ### Why
 
@@ -53,9 +54,11 @@ DSH ──native tools──> plugin ──CDP (WebSocket)──> Chrome (--remo
 
 ### Prerequisites
 
-- DeepSeek Harness (desktop profile or any profile where you can install bundles)
-- Node.js >= 18 (only needed to build; the published repo ships `lib/`)
+- DeepSeek Harness (any profile; see Install for the desktop-App caveat)
 - Google Chrome **or** Microsoft Edge
+- Node.js >= 18 on the machine that runs DSH (the plugin is an ESM package;
+  the DSH host provides the runtime — you only need Node present if you use
+  the manual bundle install, which runs `pnpm install`)
 - **You must restart Chrome once** with the debug port the first time — or
   let the plugin do it (see Auto-launch). Chrome only opens the debug port at
   launch, so an already-running Chrome without the port must be restarted.
@@ -63,29 +66,52 @@ DSH ──native tools──> plugin ──CDP (WebSocket)──> Chrome (--remo
 ### Install
 
 The repo is a standard DSH bundle (`package.json` declares
-`dsh.bundle.patch` → `cordis.patch.yml`). Install it directly from GitHub:
+`dsh.bundle.patch` → `cordis.patch.yml`), and the compiled output ships in
+`lib/` — clone-and-use, no build step needed.
+
+**Which install command works depends on which DSH surface you use**
+(verified against DSH 0.2.1-rc.5):
+
+| You use | Install command |
+|---|---|
+| CLI / `web` / `headless` / custom profile | `dsh plugin --profile <name> add github:AI-J-IN/dsh-ga-browser-bridge` |
+| Desktop App (`desktop` profile) | See "Desktop App users" below |
 
 ```bash
-dsh plugin add github:AI-J-IN/dsh-ga-browser-bridge
+# CLI / web / headless / custom profile — one command, bundle patch auto-applied
+dsh plugin --profile web add github:AI-J-IN/dsh-ga-browser-bridge
+
+# local directory (after git clone)
+dsh plugin --profile web add ./dsh-ga-browser-bridge
 ```
 
-The bundle's `cordis.patch.yml` is applied automatically on install — no
-manual profile edits. (Verified against the DSH plugin publishing guide:
-GitHub installs of the form `github:user/repo` are supported.)
+**Desktop App users.** The `dsh` CLI refuses to manage the reserved
+`desktop` profile (`profile "desktop" is managed exclusively by the Electron
+application`), and the App's built-in bundle installer accepts npm-registry
+URLs only — a GitHub tarball URL is not accepted. Two working options:
 
-Other supported ways:
+1. **Recommended: install into a CLI-managed profile** alongside the
+   desktop App (profiles are independent; e.g. `dsh plugin --profile web
+   add github:AI-J-IN/dsh-ga-browser-bridge`, then `dsh --profile web`).
+2. **Manual bundle install into desktop** (about 3 minutes):
+   ```powershell
+   git clone https://github.com/AI-J-IN/dsh-ga-browser-bridge.git
+   # copy the package dir into the desktop profile's node_modules
+   Copy-Item -Recurse -Force dsh-ga-browser-bridge "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-ga-browser-bridge"
+   ```
+   then append the bundle's `cordis.patch.yml` content (one insert row,
+   see Configuration) to
+   `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml`, and restart the
+   Desktop App. The row id `ga-browser-bridge` must not collide with the
+   legacy MCP row — disable that row first (see next section).
+   The package needs the `ws` module resolvable from the profile's
+   node_modules (already present in shipped profiles; if missing, run
+   `pnpm add ws` inside the profile directory).
 
-```bash
-# local directory (e.g. after git clone)
-dsh plugin add ./dsh-ga-browser-bridge
-
-# npm tarball
-npm pack   # then install the .tgz
-```
-
-Manual alternative (clone + copy into the profile's node_modules, then add
-the `cordis.patch.yml` insert row — see Configuration) also works but is
-not needed for normal installs.
+> Note: `dsh plugin add` forwards to `pnpm` in the profile directory, so
+> `github:user/repo` specs are resolved by pnpm. The plugin runtime itself
+> runs inside the DSH host process (Node >= 22); a separate Node install is
+> only needed for the manual bundle path, which runs `pnpm install`.
 
 ### Configuration
 
@@ -177,177 +203,20 @@ The legacy `ga-browser-bridge` MCP row and this plugin register the **same
 | Tool appears but every call times out | Another process owns port 9222; check `netstat -ano \| findstr 9222`, or set a different `port`. |
 | Login state missing | The plugin launched Chrome with a separate profile. Set `DSH_BROWSER_USER_DATA_DIR` to your real profile dir, or don't override it at all. |
 | `browser_execute_js` returns `[error] ...` | The page threw; the message contains the JS exception. Split navigation and action into two calls. |
+| `error: profile "desktop" is managed exclusively by the Electron application` | DSH platform limitation, not a plugin bug: the `dsh` CLI cannot manage the desktop App's reserved profile. Install into a CLI-managed profile, or use the manual bundle steps in Install. |
+| `install_bundle` times out with `/-/npm/v1/attestations/... ETIMEDOUT` | The App's bundle installer expects an npm registry URL; it does not accept GitHub tarball URLs. Use the CLI (`dsh plugin ... add github:...`) or the manual bundle steps. |
+| Plugin installed but tools missing after restart | Tool rows register at startup only — fully restart the DSH App/session after installing. Also confirm the legacy `ga-browser-bridge` MCP row is disabled (same tool names). |
 
 ### Development
 
+Contributor workflow (end users do not need this — `lib/` is committed):
+
 ```bash
 npm install
-npm run build     # tsc -> lib/
+npm run build     # tsc -> lib/ (only after changing src/)
 npm test          # jest (mocked CDP; no real Chrome needed)
 ```
 
 ### License
-
-MIT
-
----
-
-## 中文
-
-### 为什么做这个
-
-旧的 `ga-browser-bridge` 是四层串联：
-
-```
-DSH ──MCP(stdio)──> br_mcp.py ──HTTP──> GA master :18766 ──WS──> 扩展 ──CDP──> Chrome
-```
-
-任何一层断了整个链路就废了，而且需要装 GA 桌面端、捆绑的 Python
-运行时、还要手动加载一个 Chrome 扩展。
-
-本插件去掉全部三个依赖，直接对 CDP 说话：
-
-```
-DSH ──原生工具──> 插件 ──CDP (WebSocket)──> Chrome (--remote-debugging-port=9222)
-```
-
-> **致谢**：本插件的设计、工具语义与「真实浏览器桥」概念来自 **GA
-> （GenericAgent）项目**——它的 `TMWebDriver` / `tmwd_cdp_bridge` 扩展 /
-> `br_mcp.py` 桥验证了这条路线，并定义了本插件保持字节级兼容的
-> `browser_*` 工具契约。感谢 GA 项目打下的基础。
-
-### 特性
-
-- 五个工具：`browser_tabs` / `browser_scan` / `browser_execute_js` /
-  `browser_cdp` / `browser_cookies`
-- 复用你的**默认 Chrome profile**——已登录的站点全部保持登录态
-- 调试端口没开时自动拉起带端口的 Chrome
-- `browser_cdp` 原始 CDP 透传：截图、可信输入、文件上传、跨域 iframe、
-  shadow DOM
-- 批量 CDP 命令，支持 `$N.path` 引用前序结果
-- TypeScript + ESM，唯一运行时依赖 `ws`
-
-### 前置条件
-
-- DeepSeek Harness（desktop profile 或任何能装 bundle 的 profile）
-- Node.js >= 18（仅构建需要；仓库发布物自带 `lib/`）
-- Google Chrome 或 Microsoft Edge
-- **首次使用需要重启一次 Chrome** 带调试端口（或交给插件自动拉起）。
-  Chrome 只在启动那一刻开调试端口，已经在跑的实例无法事后补开。
-
-### 安装
-
-```bash
-dsh plugin add github:<你的账号>/dsh-ga-browser-bridge
-```
-
-bundle 的 `cordis.patch.yml` 会自动生效（`package.json` 里
-`dsh.bundle.patch` 声明）。
-
-手动方式（clone + 拷贝）：
-
-```bash
-git clone https://github.com/<你的账号>/dsh-ga-browser-bridge.git
-cd dsh-ga-browser-bridge
-npm install && npm run build
-# 把包目录拷进 profile 的 node_modules，再按「配置」一节加
-# cordis.patch.yml 的 insert 行
-```
-
-### 配置
-
-bundle 会自动往 profile composition 插入一行：
-
-```yaml
-- insert:
-    - id: ga-browser-bridge
-      name: dsh-ga-browser-bridge
-      config:
-        # host: '127.0.0.1'
-        # port: 9222
-        # autoLaunchChrome: true
-```
-
-| 选项 | 默认 | 含义 |
-|---|---|---|
-| `host` | `127.0.0.1` | CDP 调试地址 |
-| `port` | `9222` | CDP 调试端口 |
-| `autoLaunchChrome` | `true` | 端口没开时自动拉起带 `--remote-debugging-port` 的 Chrome（复用默认 profile 保留登录态）。`false` = 快速失败并给出可复制的启动命令。 |
-
-### 五个工具
-
-名字、参数、返回结构都与旧桥一致。
-
-**`browser_tabs`** — 列出 / 查找 / 切换 / 新建 / 关闭标签页
-
-```jsonc
-{ "action": "list" }                          // {"count":N,"tabs":[{id,title,url}]}
-{ "action": "find", "url_pattern": "github" } // {"matched":N,"tabs":[...]}
-{ "action": "switch", "tab_id": "12" }
-{ "action": "create", "url": "https://x.com", "active": true }
-{ "action": "close", "tab_id": "12" }
-```
-
-**`browser_scan`** — 当前页面的简化 HTML（去掉 script/style/noscript/
-svg）；`text_only:true` 只返回可见文本；`maxchars`（默认 35000）截断。
-
-**`browser_execute_js`** — 在页面里执行 JS，支持 `await`，返回求值结果。
-（旧桥的 DOM-diff 监视本插件不提供。）
-
-**`browser_cdp`** — 原始 CDP：`{method, params}` 单条，或 `{commands:[...]}`
-批量，批量里可用 `$N.path` 引用前面的结果。
-
-**`browser_cookies`** — 读取标签页来源的 cookie，**含 HttpOnly**。
-
-### 自动拉起与登录态
-
-插件发现 9222 没开时会自己拉起 Chrome，参数是
-`--remote-debugging-port=9222` 且**不传 `--user-data-dir`**，因此复用你的
-真实 profile（所有登录态都在）。两个后果：
-
-1. 如果你的 Chrome **已经在跑但没开调试端口**，Chrome 不会给已有进程补开
-   端口。插件会明确报错并给出解法：关掉所有 Chrome 窗口后重试（或设置
-   `DSH_BROWSER_USER_DATA_DIR` 指向独立 profile）。插件**绝不会替你杀浏览器**。
-2. 首次重开后 Chrome 会恢复你的标签页（Chrome 自身的恢复机制）。
-
-想手动启动（Windows）：
-
-```bat
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
-```
-
-macOS / Linux：
-
-```bash
-google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
-```
-
-环境变量覆盖（优先级高于配置）：`DSH_BROWSER_PATH`（或 `CHROME_PATH`）、
-`DSH_BROWSER_USER_DATA_DIR`、`DSH_BROWSER_PORT`。
-
-### 不要同时挂两个桥
-
-旧 `ga-browser-bridge` MCP 行和本插件注册**同名** `browser_*` 工具。装本
-插件前，先把旧行（`serverName: ga-browser-bridge` / `br_mcp.py`）禁用或删除。
-
-### 排错
-
-| 现象 | 原因 / 解法 |
-|---|---|
-| `No browser tabs available` | Chrome 没带调试端口运行。交给自动拉起，或手动执行上面的命令。 |
-| `Chrome is already running without a debug port` | 关掉所有 Chrome 窗口再试。插件不会替你杀浏览器。 |
-| 工具在但调用全部超时 |别的进程占着 9222；`netstat -ano \| findstr 9222` 查一下，或换个 `port`。 |
-| 登录态丢失 | 插件用独立 profile 拉起了 Chrome。设置 `DSH_BROWSER_USER_DATA_DIR` 指向你的真实 profile 目录，或干脆别覆盖。 |
-| `browser_execute_js` 返回 `[error] ...` | 页面里 JS 抛异常，消息里带异常内容。把导航和动作拆成两次调用。 |
-
-### 开发
-
-```bash
-npm install
-npm run build     # tsc -> lib/
-npm test          # jest（mock CDP，不需要真 Chrome）
-```
-
-### 许可证
 
 MIT

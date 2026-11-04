@@ -79,6 +79,10 @@ export declare class TargetSession {
  * it probes the TCP debug port, and when autoLaunch is enabled (default) and
  * the port is closed it launches Chrome (reusing the default profile so
  * login state is preserved) before connecting.
+ *
+ * Env overrides (README-documented): DSH_BROWSER_PORT applies as the port
+ * fallback when neither options.port nor the positional port is given;
+ * DSH_BROWSER_USER_DATA_DIR flows into the auto-launch as a custom profile.
  */
 export declare class CdpConnection {
     private readonly host;
