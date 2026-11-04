@@ -174,6 +174,22 @@ export async function routeTransport(ctx: ToolContext): Promise<RouteDecision> {
   // extension, so falling back silently would hide a real misconfiguration.
   // Warn once on stderr (never in the tool's return value — the model gets a
   // working result, and the warning is for the human reading host logs).
+  // In 'auto' mode a bridge that EXISTS but is not connected is worth one
+  // note: it means the user installed the extension but it is not talking to
+  // us (MV3 worker asleep, browser restarted, wrong port). Without this the
+  // user silently lands on the CDP path and, if the debug port is closed,
+  // reads a confusing "Chrome is already running without a debug port" error
+  // that has nothing to do with the real cause.
+  if (mode === 'auto' && bridge) {
+    warnOnce(
+      'extension-transport-idle',
+      'An extension bridge exists but no extension is connected, so tools are ' +
+        'using the CDP debug port. If you expected the extension transport, ' +
+        'open the extension options page (status should read Connected) — the ' +
+        'MV3 service worker may be asleep or the port may differ.',
+    );
+  }
+
   if (mode === 'extension') {
     if (!bridge) {
       warnOnce(

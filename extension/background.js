@@ -618,6 +618,35 @@ const ATTACH_CONFLICT_HINT =
   'Another debugger is already attached to this tab. Close DevTools (or any other extension debugging this tab) and retry.'
 
 /**
+ * Chrome forbids extension debugging on its own pages and on the Web Store.
+ * Attach then fails with "Cannot access a chrome:// URL" / "Cannot access
+ * contents of <url>" / "The extensions gallery cannot be scripted".
+ */
+const NON_DEBUGGABLE_HINT =
+  'This page cannot be driven by an extension. Chrome blocks chrome:// pages, ' +
+  "the Chrome Web Store, other extensions' pages and devtools:// pages. " +
+  'Switch to a normal http(s) tab (browser_tabs list shows the others).'
+
+const NON_DEBUGGABLE_RE =
+  /cannot access (a )?(chrome|edge|about|devtools):|cannot access contents|extensions gallery|cannot be scripted|chrome:\/\/ URL/i
+
+/**
+ * Chrome 155 policy rejections (managed browsers only): attach() is refused on
+ * EVERY target when the admin configured runtime_blocked_hosts, screenshots or
+ * DLP restrictions.
+ * developer.chrome.com/blog/debugger-enterprise-policy-restrictions
+ */
+const POLICY_HOST_HINT =
+  'Enterprise policy blocks this extension: the admin configured host restrictions ' +
+  '(runtime_blocked_hosts), so chrome.debugger cannot attach to any page. Ask IT to ' +
+  'allow this extension, or use the CDP debug-port transport instead.'
+
+const POLICY_SCREENSHOT_HINT =
+  'Enterprise policy blocks this extension: screenshots/DLP are disabled by policy ' +
+  'and Chrome then refuses chrome.debugger entirely. Ask IT to allow this extension, ' +
+  'or use the CDP debug-port transport instead.'
+
+/**
  * Attach (refcounted) and return a release function. The caller MUST call the
  * returned release exactly once, in a finally block.
  * @param {number} tabId
@@ -652,12 +681,23 @@ async function acquireDebugger(tabId) {
     // Roll back the entry so a later call retries cleanly.
     debuggerRefs.delete(tabId)
     const msg = errorMessage(err)
-    const isConflict = /already attached|another debugger/i.test(msg)
-    throw new BridgeError(
-      'ATTACH_FAILED',
-      isConflict ? ATTACH_CONFLICT_HINT : `failed to attach debugger to tab ${tabId}: ${msg}`,
-      msg
-    )
+    // Classify by cause so the model (and the user) get an actionable message
+    // instead of a generic "failed to attach".
+    let hint = `failed to attach debugger to tab ${tabId}: ${msg}`
+    let code = 'ATTACH_FAILED'
+    if (/already attached|another debugger/i.test(msg)) {
+      hint = ATTACH_CONFLICT_HINT
+    } else if (/host access is restricted by policy/i.test(msg)) {
+      hint = POLICY_HOST_HINT
+      code = 'POLICY_BLOCKED'
+    } else if (/screenshot capture is restricted by policy/i.test(msg)) {
+      hint = POLICY_SCREENSHOT_HINT
+      code = 'POLICY_BLOCKED'
+    } else if (NON_DEBUGGABLE_RE.test(msg)) {
+      hint = NON_DEBUGGABLE_HINT
+      code = 'NON_DEBUGGABLE_PAGE'
+    }
+    throw new BridgeError(code, hint, msg)
   }
 
   return () => releaseDebugger(tabId)

@@ -71,6 +71,12 @@ The extension transport is the answer to "why can't it just attach to my open
 Chrome?" — [docs/EXTENSION.md](docs/EXTENSION.md) explains the install, the
 yellow "started debugging" bar you will see, and the limitations.
 
+> **Status**: the extension transport is new. Its automated tests are green
+> (130/130 including the bridge over a real loopback socket), but it has not
+> yet been validated against a live Chrome by the maintainers.
+> [docs/TESTING.md](docs/TESTING.md) is the trial guide — please report what
+> works and what does not.
+
 ### Prerequisites
 
 - DeepSeek Harness (any profile; see Install for the desktop-App caveat)

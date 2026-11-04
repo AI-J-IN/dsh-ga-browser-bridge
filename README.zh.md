@@ -72,6 +72,10 @@ DSH ──原生工具──> 插件 ──CDP (WebSocket)──> Chrome (--remo
 [docs/EXTENSION.md](docs/EXTENSION.md) 讲了安装步骤、会看到的黄色调试提示条，
 以及各种限制。
 
+> **当前状态**：扩展模式是新功能。自动化测试全绿（130/130，含真实
+> localhost WebSocket 的桥测试），但**尚未在真实 Chrome 上由维护者验证过**。
+> [docs/TESTING.md](docs/TESTING.md) 是试用指南——欢迎反馈哪些能用、哪些不能。
+
 ### 前置条件
 
 - DeepSeek Harness（任意 profile；desktop 的限制见「安装」一节）
