@@ -4,22 +4,22 @@
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）——
 直接走 Chrome DevTools Protocol。
 
-**不需要 GenericAgent。不需要 Python。不需要浏览器扩展。**只是一个 DSH 插件，
-对你已在用的 Chrome 说 CDP。
+**运行时不需要 GenericAgent，不需要 Python，不需要浏览器扩展。**只有一个 DSH
+插件，对你已在用的 Chrome 说 CDP。
 
 > 本插件取代旧的 `ga-browser-bridge` MCP 桥
 > （`br_mcp.py` + GA master + `tmwd_cdp_bridge` 扩展）。五个 `browser_*` 工具
 > 保持**同名、同参数、同返回形状**，现有提示词与 agent 记忆继续可用。
 
-> **致谢**：本插件的设计、工具语义与「真实浏览器桥」概念来自 **GA
-> （GenericAgent）项目**——它的 `TMWebDriver` / `tmwd_cdp_bridge` 扩展 /
-> `br_mcp.py` 桥验证了这条路线，并定义了本插件保持字节级兼容的
-> `browser_*` 工具契约。感谢 GA 项目打下的基础。
+> **致谢**：本插件的设计、工具语义与「真实浏览器桥」概念来自
+> **[GA（GenericAgent）项目](https://github.com/lsdefine/GenericAgent)**——它的
+> `TMWebDriver` / `tmwd_cdp_bridge` 扩展 / `br_mcp.py` 桥验证了这条路线，
+> 并定义了本插件保持字节级兼容的 `browser_*` 工具契约。
+> 感谢 GA 项目及其作者打下的基础。
 
 ---
 
 > **English documentation**: [README.md](./README.md)
-
 
 ### 为什么做这个
 
@@ -37,11 +37,6 @@ DSH ──MCP(stdio)──> br_mcp.py ──HTTP──> GA master :18766 ──W
 ```
 DSH ──原生工具──> 插件 ──CDP (WebSocket)──> Chrome (--remote-debugging-port=9222)
 ```
-
-> **致谢**：本插件的设计、工具语义与「真实浏览器桥」概念来自 **GA
-> （GenericAgent）项目**——它的 `TMWebDriver` / `tmwd_cdp_bridge` 扩展 /
-> `br_mcp.py` 桥验证了这条路线，并定义了本插件保持字节级兼容的
-> `browser_*` 工具契约。感谢 GA 项目打下的基础。
 
 ### 特性
 

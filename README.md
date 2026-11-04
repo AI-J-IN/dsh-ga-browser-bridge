@@ -4,8 +4,8 @@ Control your **real Chrome** (with all your login sessions intact) from
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) —
 directly over the Chrome DevTools Protocol.
 
-**No GenericAgent. No Python. No browser extension.** Just a DSH plugin that
-talks CDP to the Chrome you already use.
+**No GenericAgent, no Python, no browser extension at runtime** — just a DSH
+plugin that talks CDP to the Chrome you already use.
 
 > This plugin replaces the legacy `ga-browser-bridge` MCP bridge
 > (`br_mcp.py` + GA master + `tmwd_cdp_bridge` extension). The five
@@ -13,10 +13,11 @@ talks CDP to the Chrome you already use.
 > shapes**, so existing prompts and agent memories keep working.
 >
 > **Acknowledgment**: the design, the tool semantics, and the original
-> real-browser-bridge concept come from the **GA (GenericAgent) project** —
+> real-browser-bridge concept come from the
+> **[GA (GenericAgent) project](https://github.com/lsdefine/GenericAgent)** —
 > its `TMWebDriver` / `tmwd_cdp_bridge` extension / `br_mcp.py` bridge proved
 > the approach and defined the `browser_*` tool contract this plugin keeps
-> byte-compatible. Thanks to the GA project for the foundation.
+> byte-compatible. Thanks to the GA project and its authors for the foundation.
 
 > **中文文档**: [README.zh.md](./README.zh.md)
 
