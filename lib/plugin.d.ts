@@ -13,4 +13,4 @@ export interface PluginConfig {
      */
     autoLaunchChrome?: boolean;
 }
-export declare function apply(ctx: any, config?: PluginConfig): void;
+export declare function apply(ctx: any, rawConfig?: PluginConfig | null): void;

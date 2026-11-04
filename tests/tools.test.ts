@@ -499,7 +499,7 @@ describe('browser_cdp', () => {
 // ---------------------------------------------------------------------------
 
 describe('browser_cookies', () => {
-  test('11. Network.getAllCookies -> origin-filtered cookies; HttpOnly included; others excluded', async () => {
+  test('11. Storage.getCookies -> origin-filtered; HttpOnly included; others excluded', async () => {
     const conn = new FakeCdpConnection();
     conn.tabs = [
       {
@@ -515,9 +515,9 @@ describe('browser_cookies', () => {
       { name: 'tracker', value: 'xyz', domain: '.other-site.net', httpOnly: false },
       { name: 'theme', value: 'dark', domain: '.example.com', httpOnly: false },
     ];
-    // getAllCookies is browser-level: sent on the CONNECTION (raw wire
-    // envelope tolerated by unwrap()).
-    conn.on('Network.getAllCookies', { result: { cookies } });
+    // Chrome 155 REMOVED Network.getAllCookies; the implementation asks
+    // Storage.getCookies first (browser-level, sent on the CONNECTION).
+    conn.on('Storage.getCookies', { result: { cookies } });
     const ctx = makeCtx(conn);
     const out = await call('browser_cookies', { tab_id: '1' }, ctx);
     const parsed = JSON.parse(out);
@@ -530,7 +530,27 @@ describe('browser_cookies', () => {
     expect(text).not.toContain('tracker');
     // Same-origin non-HttpOnly cookie may be present.
     expect(text).toContain('theme');
-    // The getAllCookies call must have gone through the fake connection.
+    // The modern API must be the one actually used.
+    expect(
+      conn.sent.some((c: RecordedCall) => c.method === 'Storage.getCookies'),
+    ).toBe(true);
+  });
+
+  test('11c. falls back to Network.getAllCookies on older Chrome', async () => {
+    const conn = new FakeCdpConnection();
+    conn.tabs = [
+      { id: '1', type: 'page', title: 'Example', url: 'https://example.com/x' },
+    ];
+    const cookies = [
+      { name: 'legacy', value: 'v', domain: '.example.com', httpOnly: false },
+    ];
+    // Simulate a pre-155 Chrome where Storage.getCookies does not exist.
+    conn.throwOnMethod = 'Storage.getCookies';
+    conn.errorToThrow = new Error("'Storage.getCookies' wasn't found");
+    conn.on('Network.getAllCookies', { result: { cookies } });
+    const ctx = makeCtx(conn);
+    const out = await call('browser_cookies', { tab_id: '1' }, ctx);
+    expect(JSON.parse(out).cookies.some((c: any) => c.name === 'legacy')).toBe(true);
     expect(
       conn.sent.some((c: RecordedCall) => c.method === 'Network.getAllCookies'),
     ).toBe(true);

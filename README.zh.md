@@ -154,27 +154,64 @@ svg）；`text_only:true` 只返回可见文本；`maxchars`（默认 35000）�
 
 **`browser_cookies`** — 读取标签页来源的 cookie，**含 HttpOnly**。
 
+### Chrome 136+ 限制（重要）
+
+**Chrome 136 及更新版本禁止在「默认 profile」上开启远程调试端口。** 只传
+`--remote-debugging-port` 而不传**独立的** `--user-data-dir` 时，Chrome 会
+**静默忽略**该参数：不报错、端口不开、也不生成 `DevToolsActivePort` 文件——
+从外部看和「参数写错了」完全一样，极难排查。（官方说明：
+[Chrome for Developers — 远程调试开关变更](https://developer.chrome.com/blog/remote-debugging-port?hl=zh-cn)）
+
+实际影响：
+
+- 在 Chrome 136+ 上，插件的 auto-launch **无法**复用你的日常 profile。现在它会
+  检测已安装的主版本号，**快速失败并给出明确原因**，而不是启动一个注定开不了端口的 Chrome。
+- 必须通过 `DSH_BROWSER_USER_DATA_DIR` 指向**独立 profile 目录**，或自己带
+  `--user-data-dir=<独立目录>` 启动 Chrome。
+- 独立 profile 初始没有任何登录态。想带上登录态，请在关闭 Chrome 后把这些文件
+  从真实 profile 复制过去：`Network\Cookies`、`Login Data`、
+  `Login Data For Account`、`Web Data`、`Preferences`、`Secure Preferences`、
+  `Bookmarks`，以及 `User Data\Local State`——**最后这个文件保存解密 cookie
+  数据库所需的 DPAPI 密钥，缺了它复制过去的 cookie 全都读不出来**。
+
+```bat
+REM Windows：建一个专用调试 profile
+"C:\Program Files\Google\Chrome\Application\chrome.exe" ^
+  --remote-debugging-port=9222 ^
+  --remote-debugging-address=127.0.0.1 ^
+  --user-data-dir="%LOCALAPPDATA%\Google\Chrome\User Data DSH" ^
+  --no-first-run --no-default-browser-check
+```
+
+然后把同一个目录告诉插件，让 auto-launch 与之一致：
+
+```powershell
+setx DSH_BROWSER_USER_DATA_DIR "%LOCALAPPDATA%\Google\Chrome\User Data DSH"
+```
+
 ### 自动拉起与登录态
 
-插件发现 9222 没开时会自己拉起 Chrome，参数是
-`--remote-debugging-port=9222` 且**不传 `--user-data-dir`**，因此复用你的
-真实 profile（所有登录态都在）。两个后果：
+插件发现调试端口没开时会自己拉起 Chrome，参数是 `--remote-debugging-port`。
+在 Chrome **&lt; 136** 上它复用你的真实 profile（不传 `--user-data-dir`），所以
+登录态全在；在 **136+** 上这不可能（见上一节），必须使用独立 profile。
 
 1. 如果你的 Chrome **已经在跑但没开调试端口**，Chrome 不会给已有进程补开
    端口。插件会明确报错并给出解法：关掉所有 Chrome 窗口后重试（或设置
    `DSH_BROWSER_USER_DATA_DIR` 指向独立 profile）。插件**绝不会替你杀浏览器**。
+   在 Chrome 136+ 上，报错还会额外说明「仅关闭浏览器没用，必须改用独立 profile」。
 2. 首次重开后 Chrome 会恢复你的标签页（Chrome 自身的恢复机制）。
 
-想手动启动（Windows）：
+想手动启动（Windows）——Chrome 136+ 必须带 `--user-data-dir`，否则端口静默不开：
 
 ```bat
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 --user-data-dir="%LOCALAPPDATA%\Google\Chrome\User Data DSH"
 ```
 
 macOS / Linux：
 
 ```bash
-google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
+google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 \
+  --user-data-dir="$HOME/.config/google-chrome-dsh"
 ```
 
 环境变量覆盖（优先级高于配置）：`DSH_BROWSER_PATH`（或 `CHROME_PATH`）、
@@ -197,6 +234,11 @@ google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
 | `error: profile "desktop" is managed exclusively by the Electron application` | DSH 平台限制，不是插件 bug：CLI 无权管理桌面 App 保留的 desktop profile。改装到 CLI 管理的 profile，或按「安装」节的手工 bundle 步骤操作。 |
 | `install_bundle` 卡在 `/-/npm/v1/attestations/... ETIMEDOUT` 超时 | App 内置 bundle 安装器要 npm registry URL，不接受 GitHub tarball URL。改用 CLI（`dsh plugin ... add github:...`）或手工 bundle 步骤。 |
 | 插件装好了但重启后工具列表没有 | 工具行只在启动时注册——安装后要完整重启 DSH App/会话。同时确认旧的 `ga-browser-bridge` MCP 行已禁用（工具同名会冲突）。 |
+| DSH 启动报 `Cannot read properties of null (reading 'host')` | 0.1.1 已修：条目没写 `config:` 时 loader 传的是 `null`。升级插件，或显式写 `config: {}`。 |
+| 传了 `--remote-debugging-port` 但端口一直不开、也不报错 | Chrome 136+ 限制：必须带独立的 `--user-data-dir`。见「Chrome 136+ 限制」。 |
+| `'Network.getAllCookies' wasn't found` | 0.1.1 已修：Chrome 155 移除了该方法，改用 `Storage.getCookies`（旧版 Chrome 自动回退）。 |
+| `newTab` 卡住 / `GET /json/new` 返回 405 | 0.1.1 已修：`/json/new` 必须用 PUT。 |
+| `activate`/`close` 报 `Unexpected token 'T', "Target activated"` | 0.1.1 已修：这两个端点返回纯文本，不是 JSON。 |
 
 ### 开发
 

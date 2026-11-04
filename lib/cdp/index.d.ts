@@ -16,6 +16,6 @@
  */
 export type { CdpTarget, CdpClientOptions, CdpEventCallback } from "./types.js";
 export { CdpConnection, TargetSession, CdpError } from "./connection.js";
-export { LaunchError, findBrowser, isDebugPortOpen, ensureDebugChrome, envPort, envUserDataDir, DEFAULT_DEBUG_PORT, } from "./launcher.js";
+export { LaunchError, findBrowser, isDebugPortOpen, ensureDebugChrome, envPort, envUserDataDir, detectChromeMajor, MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG, DEFAULT_DEBUG_PORT, } from "./launcher.js";
 export type { EnsureDebugChromeResult, LaunchResult } from "./launcher.js";
-export { CdpHttpError, fetchJson, getVersion, listTargets, newTab, closeTarget, activateTarget, } from "./json.js";
+export { CdpHttpError, fetchJson, fetchText, getVersion, listTargets, newTab, closeTarget, activateTarget, } from "./json.js";

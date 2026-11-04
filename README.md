@@ -159,11 +159,51 @@ with `$N.path` references to earlier results.
 
 **`browser_cookies`** — cookies for the tab's origin, **including HttpOnly**.
 
+### Chrome 136+ restriction (IMPORTANT)
+
+**Chrome 136 and newer refuse to open a remote-debugging port on the DEFAULT
+profile.** Passing `--remote-debugging-port` without a *separate*
+`--user-data-dir` is **silently ignored**: no error, no port, no
+`DevToolsActivePort` file — externally it looks exactly like a typo, which
+makes this very hard to diagnose. (Official notice:
+[Chrome for Developers — remote debugging switch change](https://developer.chrome.com/blog/remote-debugging-port))
+
+Practical consequences:
+
+- The plugin's auto-launch **cannot** reuse your everyday profile on Chrome
+  136+. It detects the installed major version and fails fast with an explicit
+  message instead of spawning a Chrome that can never open the port.
+- Point the plugin at a **separate profile directory** via
+  `DSH_BROWSER_USER_DATA_DIR`, or start Chrome yourself with
+  `--user-data-dir=<separate dir>`.
+- A separate profile starts with no logins. To carry sessions over, copy these
+  from your real profile (Chrome closed): `Network\Cookies`, `Login Data`,
+  `Login Data For Account`, `Web Data`, `Preferences`, `Secure Preferences`,
+  `Bookmarks`, plus `User Data\Local State` — that last file holds the DPAPI
+  key that decrypts the cookie database; without it the copied cookies are
+  unreadable.
+
+```bat
+REM Windows: a dedicated debug profile
+"C:\Program Files\Google\Chrome\Application\chrome.exe" ^
+  --remote-debugging-port=9222 ^
+  --remote-debugging-address=127.0.0.1 ^
+  --user-data-dir="%LOCALAPPDATA%\Google\Chrome\User Data DSH" ^
+  --no-first-run --no-default-browser-check
+```
+
+Then point the plugin at the same directory so auto-launch agrees:
+
+```powershell
+setx DSH_BROWSER_USER_DATA_DIR "%LOCALAPPDATA%\Google\Chrome\User Data DSH"
+```
+
 ### Auto-launch & login state
 
-When the plugin finds port 9222 closed it launches Chrome itself with
-`--remote-debugging-port=9222` and **no `--user-data-dir` override**, so your
-real profile (and every login) is reused. Two consequences:
+When the plugin finds the debug port closed it launches Chrome itself with
+`--remote-debugging-port`. On Chrome **&lt; 136** it reuses your real profile
+(no `--user-data-dir`) so every login is preserved; on **136+** that is
+impossible (see the section above), so it requires a separate profile.
 
 1. If your Chrome is **already running without the debug port**, Chrome will
    not open the port on the existing process. The plugin then reports the
@@ -172,16 +212,18 @@ real profile (and every login) is reused. Two consequences:
    your browser**.
 2. The first relaunch restores your tabs (Chrome's own restore).
 
-To launch manually instead (Windows):
+To launch manually instead (Windows) — include `--user-data-dir` on Chrome 136+,
+otherwise the port silently never opens:
 
 ```bat
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 --user-data-dir="%LOCALAPPDATA%\Google\Chrome\User Data DSH"
 ```
 
 macOS / Linux:
 
 ```bash
-google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
+google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 \
+  --user-data-dir="$HOME/.config/google-chrome-dsh"
 ```
 
 Environment overrides (take precedence over config): `DSH_BROWSER_PATH`
@@ -206,6 +248,11 @@ The legacy `ga-browser-bridge` MCP row and this plugin register the **same
 | `error: profile "desktop" is managed exclusively by the Electron application` | DSH platform limitation, not a plugin bug: the `dsh` CLI cannot manage the desktop App's reserved profile. Install into a CLI-managed profile, or use the manual bundle steps in Install. |
 | `install_bundle` times out with `/-/npm/v1/attestations/... ETIMEDOUT` | The App's bundle installer expects an npm registry URL; it does not accept GitHub tarball URLs. Use the CLI (`dsh plugin ... add github:...`) or the manual bundle steps. |
 | Plugin installed but tools missing after restart | Tool rows register at startup only — fully restart the DSH App/session after installing. Also confirm the legacy `ga-browser-bridge` MCP row is disabled (same tool names). |
+| DSH fails to activate: `Cannot read properties of null (reading 'host')` | Fixed in 0.1.1: the loader passes `null` config for an entry with no `config:` key. Update the plugin (or add an explicit `config: {}`). |
+| `--remote-debugging-port` given but the port never opens, no error | Chrome 136+ restriction: a separate `--user-data-dir` is mandatory. See "Chrome 136+ restriction". |
+| `'Network.getAllCookies' wasn't found` | Fixed in 0.1.1: Chrome 155 removed it; the plugin now uses `Storage.getCookies` (falls back on old Chrome). |
+| `newTab` hangs / `GET /json/new` 405 | Fixed in 0.1.1: `/json/new` requires PUT. |
+| `activate`/`close` fail with `Unexpected token 'T', "Target activated"` | Fixed in 0.1.1: those endpoints return plain text, not JSON. |
 
 ### Development
 

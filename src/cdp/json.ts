@@ -45,13 +45,14 @@ export class CdpHttpError extends Error {
 export async function fetchJson<T = any>(
   url: string,
   timeoutMs: number = DEFAULT_HTTP_TIMEOUT_MS,
+  method: string = "GET",
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     let response: Response;
     try {
-      response = await fetch(url, { signal: controller.signal });
+      response = await fetch(url, { method, signal: controller.signal });
     } catch (err: any) {
       const name = err?.name ?? "";
       const timedOut =
@@ -96,6 +97,57 @@ export async function fetchJson<T = any>(
         response.status,
       );
     }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Request a URL whose body is PLAIN TEXT and return it verbatim.
+ *
+ * `/json/activate/{id}` and `/json/close/{id}` answer with plain strings
+ * ("Target activated" / "Target is closing"), NOT JSON — running them through
+ * {@link fetchJson} threw `Unexpected token 'T'`. Those endpoints also require
+ * the PUT verb on current Chrome.
+ *
+ * @param url - Absolute URL to fetch.
+ * @param timeoutMs - Per-request timeout in ms (default 15000).
+ * @param method - HTTP method (default GET; pass "PUT" for activate/close).
+ * @returns The raw response body.
+ */
+export async function fetchText(
+  url: string,
+  timeoutMs: number = DEFAULT_HTTP_TIMEOUT_MS,
+  method: string = "GET",
+): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    let response: Response;
+    try {
+      response = await fetch(url, { method, signal: controller.signal });
+    } catch (err: any) {
+      const name = err?.name ?? "";
+      const timedOut =
+        name === "AbortError" ||
+        /abort/i.test(name) ||
+        /abort/i.test(String(err?.message ?? ""));
+      if (timedOut) {
+        throw new CdpHttpError(`timeout after ${timeoutMs}ms fetching ${url}`, url);
+      }
+      throw new CdpHttpError(
+        `network error fetching ${url}: ${String((err as Error)?.message ?? err)}`,
+        url,
+      );
+    }
+    if (!response.ok) {
+      throw new CdpHttpError(
+        `HTTP ${response.status} ${response.statusText} for ${url}`,
+        url,
+        response.status,
+      );
+    }
+    return await response.text();
   } finally {
     clearTimeout(timer);
   }
@@ -168,11 +220,15 @@ export async function newTab(
   const endpoint = url !== undefined && url !== "" ? `/json/new?${encodeURIComponent(url)}` : "/json/new";
   const fullUrl = `${base}${endpoint}`;
   try {
-    return await fetchJson<CdpTarget>(fullUrl, timeoutMs);
+    // Chrome >= 111 accepts ONLY PUT here. A GET answers 405 with
+    // "Using unsafe HTTP verb GET to invoke /json/new" — and because the old
+    // code's 405 fallback re-sent the same GET, creation hung forever.
+    return await fetchJson<CdpTarget>(fullUrl, timeoutMs, "PUT");
   } catch (err: any) {
     if (err instanceof CdpHttpError && err.status === 405) {
+      // Very old Chrome/Chromium honoured GET; retry with the real verb.
       log(`PUT /json/new got 405; falling back to GET ${endpoint}`);
-      return fetchJson<CdpTarget>(fullUrl, timeoutMs);
+      return fetchJson<CdpTarget>(fullUrl, timeoutMs, "GET");
     }
     throw err;
   }
@@ -196,8 +252,14 @@ export async function closeTarget(
 ): Promise<boolean> {
   const base = baseUrl(host, port);
   try {
-    const res = await fetchJson<any>(`${base}/json/close/${encodeURIComponent(targetId)}`, timeoutMs);
-    return res !== undefined && res !== null;
+    // These endpoints answer PLAIN TEXT ("Target is closing"), not JSON —
+    // parsing them as JSON threw `Unexpected token 'T'`.
+    const res = await fetchText(
+      `${base}/json/close/${encodeURIComponent(targetId)}`,
+      timeoutMs,
+      "PUT",
+    );
+    return res.length > 0;
   } catch (err: any) {
     // Chrome answers 404 for unknown target ids; treat as "not closed".
     if (err instanceof CdpHttpError && err.status === 404) {
@@ -224,11 +286,13 @@ export async function activateTarget(
 ): Promise<boolean> {
   const base = baseUrl(host, port);
   try {
-    const res = await fetchJson<any>(
+    // Plain-text response ("Target activated"); see closeTarget.
+    const res = await fetchText(
       `${base}/json/activate/${encodeURIComponent(targetId)}`,
       timeoutMs,
+      "PUT",
     );
-    return res !== undefined && res !== null;
+    return res.length > 0;
   } catch (err: any) {
     if (err instanceof CdpHttpError && err.status === 404) {
       return false;

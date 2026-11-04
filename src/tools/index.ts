@@ -54,9 +54,12 @@ export function createToolContext(overrides?: Partial<ToolContext>): ToolContext
     getConnection: async (): Promise<CdpConnection> => {
       if (!conn) {
         const mod = await import('../cdp/index.js');
-        conn = new mod.CdpConnection(base.host, base.port, {
-          timeoutMs: base.defaultTimeoutMs,
-          autoLaunch: base.autoLaunchChrome !== false,
+        // Read from the MERGED context (`ctx`), never from `base`: reading
+        // `base` pinned every caller to 127.0.0.1:9222 and silently ignored
+        // both the plugin config and DSH_BROWSER_PORT.
+        conn = new mod.CdpConnection(ctx.host, ctx.port, {
+          timeoutMs: ctx.defaultTimeoutMs,
+          autoLaunch: ctx.autoLaunchChrome !== false,
         });
       }
       await conn.ensureOpen();
@@ -67,11 +70,12 @@ export function createToolContext(overrides?: Partial<ToolContext>): ToolContext
       // machine (CdpConnection options.autoLaunch). LaunchError still
       // propagates from ensureOpen; tool try/catch renders it as
       // "[error] LaunchError: <message>".
-      const c = await base.getConnection();
+      const c = await ctx.getConnection();
       await c.ensureOpen();
     },
   };
-  return { ...base, ...overrides };
+  const ctx: ToolContext = { ...base, ...overrides };
+  return ctx;
 }
 
 /**

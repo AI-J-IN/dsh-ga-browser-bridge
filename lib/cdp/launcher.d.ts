@@ -51,6 +51,21 @@ export declare function findBrowser(): {
  */
 export declare function isDebugPortOpen(port: number, host?: string): Promise<boolean>;
 /**
+ * Chrome major version from the binary path, or null when it cannot be read.
+ *
+ * Reads the installed version directory ("...\Chrome\Application\131.0.x\")
+ * which every Chrome/Edge install on Windows uses. Chromium on other
+ * platforms usually has no versioned dir, so null is normal there.
+ */
+export declare function detectChromeMajor(browserPath: string): number | null;
+/**
+ * Chrome 136+ refuses to open a remote-debugging port on the DEFAULT profile:
+ * it silently ignores --remote-debugging-port unless a non-default
+ * --user-data-dir is also given (no error, no port, no DevToolsActivePort).
+ * See https://developer.chrome.com/blog/remote-debugging-port
+ */
+export declare const MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG = 136;
+/**
  * Result of launching a browser manually (kept for contract compatibility
  * with the original bridge design; ensureDebugChrome's own return type is
  * {@link EnsureDebugChromeResult}).

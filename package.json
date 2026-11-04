@@ -1,6 +1,6 @@
 {
   "name": "dsh-ga-browser-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH plugin: control your real Chrome (with login state) over CDP. No GA, no Python, no extension.",
   "type": "module",
   "main": "lib/index.js",

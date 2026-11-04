@@ -11,7 +11,7 @@
  */
 
 import { execSync, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -232,6 +232,42 @@ function defaultUserDataDir(): string {
 }
 
 /**
+ * Chrome major version from the binary path, or null when it cannot be read.
+ *
+ * Reads the installed version directory ("...\Chrome\Application\131.0.x\")
+ * which every Chrome/Edge install on Windows uses. Chromium on other
+ * platforms usually has no versioned dir, so null is normal there.
+ */
+export function detectChromeMajor(browserPath: string): number | null {
+  // Windows/macOS installs live under .../Application/<version>/ — read it.
+  const m = /[\\/](\d{2,3})\.\d+\.\d+\.\d+[\\/]/.exec(browserPath);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (Number.isInteger(n) && n > 0) return n;
+  }
+  // Fall back to a sibling versioned directory.
+  try {
+    const dir = path.dirname(browserPath);
+    const entries = existsSync(dir) ? readdirSync(dir) : [];
+    for (const e of entries) {
+      const mm = /^(\d{2,3})\.\d+\.\d+\.\d+$/.exec(String(e));
+      if (mm) return parseInt(mm[1], 10);
+    }
+  } catch {
+    // Unreadable — treat as unknown.
+  }
+  return null;
+}
+
+/**
+ * Chrome 136+ refuses to open a remote-debugging port on the DEFAULT profile:
+ * it silently ignores --remote-debugging-port unless a non-default
+ * --user-data-dir is also given (no error, no port, no DevToolsActivePort).
+ * See https://developer.chrome.com/blog/remote-debugging-port
+ */
+export const MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG = 136;
+
+/**
  * Is a Chrome/Chromium/Edge process currently running?
  *
  * Uses tasklist on Windows, pgrep elsewhere.
@@ -386,14 +422,49 @@ export async function ensureDebugChrome(
   const usingCustomProfile =
     argOrEnvUserDataDir !== undefined && argOrEnvUserDataDir.trim().length > 0;
   if (!usingCustomProfile && isBrowserProcessRunning()) {
+    const major = detectChromeMajor(browser.path);
+    const modernHint =
+      major !== null && major >= MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG
+        ? ` Note: Chrome ${major} also forbids remote debugging on the default ` +
+          `profile, so closing Chrome alone will NOT help — you must use a ` +
+          `separate profile via DSH_BROWSER_USER_DATA_DIR.`
+        : "";
     throw new LaunchError(
       "Chrome is already running without a debug port. Close all Chrome windows " +
         "and retry (or set DSH_BROWSER_USER_DATA_DIR to a separate profile). " +
-        "The plugin will NOT auto-kill your browser.",
+        "The plugin will NOT auto-kill your browser." +
+        modernHint,
     );
   }
 
-  // 3) Launch a fresh debug instance.
+  // 3) Chrome 136+ refuses to open a debugging port on the DEFAULT profile:
+  //    --remote-debugging-port is silently ignored (no error, no port, no
+  //    DevToolsActivePort) unless a non-default --user-data-dir is supplied.
+  //    Spawning anyway would look like a 20s timeout with a misleading
+  //    message, so fail fast with the actual cause and the working command.
+  const chromeMajor = detectChromeMajor(browser.path);
+  if (
+    !usingCustomProfile &&
+    chromeMajor !== null &&
+    chromeMajor >= MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG
+  ) {
+    const suggestedDir = path.join(
+      path.dirname(defaultUserDataDir()),
+      "Chrome User Data DSH",
+    );
+    throw new LaunchError(
+      `Chrome ${chromeMajor} refuses remote debugging on the DEFAULT profile. ` +
+        `Chrome ${MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG}+ silently ignores ` +
+        `--remote-debugging-port unless a separate --user-data-dir is given ` +
+        `(no error, no port). \n` +
+        `Fix: set DSH_BROWSER_USER_DATA_DIR to a separate profile directory ` +
+        `(the plugin will create/use it), or start Chrome yourself with:\n` +
+        `  ${manualLaunchCommand(browser.path, effectivePort, suggestedDir)}\n` +
+        `See https://developer.chrome.com/blog/remote-debugging-port`,
+    );
+  }
+
+  // 4) Launch a fresh debug instance.
   const effectiveUserDataDir = usingCustomProfile
     ? (argOrEnvUserDataDir as string)
     : defaultUserDataDir();
@@ -408,7 +479,8 @@ export async function ensureDebugChrome(
     args.push(`--user-data-dir=${effectiveUserDataDir}`);
   }
   // NOTE: for the DEFAULT profile case we deliberately pass NO --user-data-dir
-  // so Chrome uses the real profile and preserves login state.
+  // so Chrome uses the real profile and preserves login state. Chrome < 136
+  // still allows that; 136+ was rejected above.
 
   const manualCommand = manualLaunchCommand(
     browser.path,

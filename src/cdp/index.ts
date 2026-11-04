@@ -24,12 +24,15 @@ export {
   ensureDebugChrome,
   envPort,
   envUserDataDir,
+  detectChromeMajor,
+  MIN_MAJOR_FOR_DEFAULT_PROFILE_DEBUG,
   DEFAULT_DEBUG_PORT,
 } from "./launcher.js";
 export type { EnsureDebugChromeResult, LaunchResult } from "./launcher.js";
 export {
   CdpHttpError,
   fetchJson,
+  fetchText,
   getVersion,
   listTargets,
   newTab,

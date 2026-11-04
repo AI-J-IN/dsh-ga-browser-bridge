@@ -26,7 +26,21 @@ export declare class CdpHttpError extends Error {
  * @param timeoutMs - Per-request timeout in ms (default 15000).
  * @returns The parsed JSON body.
  */
-export declare function fetchJson<T = any>(url: string, timeoutMs?: number): Promise<T>;
+export declare function fetchJson<T = any>(url: string, timeoutMs?: number, method?: string): Promise<T>;
+/**
+ * Request a URL whose body is PLAIN TEXT and return it verbatim.
+ *
+ * `/json/activate/{id}` and `/json/close/{id}` answer with plain strings
+ * ("Target activated" / "Target is closing"), NOT JSON — running them through
+ * {@link fetchJson} threw `Unexpected token 'T'`. Those endpoints also require
+ * the PUT verb on current Chrome.
+ *
+ * @param url - Absolute URL to fetch.
+ * @param timeoutMs - Per-request timeout in ms (default 15000).
+ * @param method - HTTP method (default GET; pass "PUT" for activate/close).
+ * @returns The raw response body.
+ */
+export declare function fetchText(url: string, timeoutMs?: number, method?: string): Promise<string>;
 /**
  * GET /json/version — browser metadata.
  *

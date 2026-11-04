@@ -24,7 +24,16 @@ export async function browser_cookies(
     const tab = await resolveToolTab(conn, args?.tab_id, ctx);
     if (!tab) return noBrowserError();
 
-    const res = await conn.send('Network.getAllCookies');
+    // Chrome 155 REMOVED Network.getAllCookies / Network.getCookies at the
+    // browser level — the CDP docs point at Storage.getCookies instead, and
+    // older builds answer "'Network.getAllCookies' wasn't found" (code
+    // -32601). Try the current API first, fall back for older Chrome.
+    let res: any;
+    try {
+      res = await conn.send('Storage.getCookies');
+    } catch {
+      res = await conn.send('Network.getAllCookies');
+    }
     const all: any[] = unwrap(res, 'cookies') ?? [];
     const host = hostOf(tab.url);
     const cookies = host ? all.filter((c) => domainMatches(c?.domain, host)) : all;

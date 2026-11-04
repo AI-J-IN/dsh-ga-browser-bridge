@@ -62,8 +62,13 @@ function toRegisteredTool(spec: ToolSpec) {
 /** Single tool context per plugin mount (module-scoped, set by apply). */
 let context: ReturnType<typeof createToolContext> | undefined
 
-export function apply(ctx: any, config: PluginConfig = {}) {
-  const host = (config.host as string) || DEFAULT_HOST
+export function apply(ctx: any, rawConfig?: PluginConfig | null) {
+  // The cordis loader passes `null` for an entry mounted without an explicit
+  // `config:` key — the default parameter only covers `undefined`, so a null
+  // here used to throw "Cannot read properties of null (reading 'host')" and
+  // the whole plugin failed to activate. Coalesce instead.
+  const config = rawConfig ?? {}
+  const host = typeof config.host === 'string' && config.host ? config.host : DEFAULT_HOST
   const port = typeof config.port === 'number' ? config.port : DEFAULT_PORT
 
   context = createToolContext({

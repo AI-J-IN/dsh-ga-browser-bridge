@@ -112,6 +112,9 @@ export class FakeCdpConnection {
   /** canned responses for connection-level send(). */
   public responses: Map<string, CannedResponse> = new Map();
   public defaultResponse: any = {};
+  /** connection-level failure injection (mirrors FakeTargetSession). */
+  public throwOnMethod?: string;
+  public errorToThrow?: Error;
 
   async listTabs(): Promise<FakeCdpTarget[]> {
     return this.tabs;
@@ -150,9 +153,12 @@ export class FakeCdpConnection {
     return true;
   }
 
-  /** Browser-level send (e.g. Network.getAllCookies). */
+  /** Browser-level send (e.g. Storage.getCookies). */
   async send(method: string, params?: any, timeoutMs?: number): Promise<any> {
     this.sent.push({ method, params, timeoutMs });
+    if (this.throwOnMethod === method) {
+      throw this.errorToThrow ?? new Error(`fake failure for ${method}`);
+    }
     const canned = this.responses.get(method) ?? this.defaultResponse;
     if (typeof canned === 'function') {
       return (canned as (p: any, m: string) => any)(params, method);
