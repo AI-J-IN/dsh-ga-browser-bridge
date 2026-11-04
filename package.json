@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "DSH plugin: control your real Chrome (with login state) over CDP. No GA, no Python, no extension.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
@@ -29,7 +29,7 @@
     "README.md",
     "README.zh.md",
     "cordis.patch.yml",
-    "dist"
+    "lib"
   ],
   "dsh": {
     "bundle": {

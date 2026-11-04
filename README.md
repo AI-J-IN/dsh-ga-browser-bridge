@@ -54,7 +54,7 @@ DSH ──native tools──> plugin ──CDP (WebSocket)──> Chrome (--remo
 ### Prerequisites
 
 - DeepSeek Harness (desktop profile or any profile where you can install bundles)
-- Node.js >= 18 (only needed to build; the published repo ships `dist/`)
+- Node.js >= 18 (only needed to build; the published repo ships `lib/`)
 - Google Chrome **or** Microsoft Edge
 - **You must restart Chrome once** with the debug port the first time — or
   let the plugin do it (see Auto-launch). Chrome only opens the debug port at
@@ -62,22 +62,30 @@ DSH ──native tools──> plugin ──CDP (WebSocket)──> Chrome (--remo
 
 ### Install
 
-```bash
-dsh plugin add github:<you>/dsh-ga-browser-bridge
-```
-
-The bundle's `cordis.patch.yml` is applied automatically (declared via
-`dsh.bundle.patch` in `package.json`).
-
-Manual alternative (clone + copy):
+The repo is a standard DSH bundle (`package.json` declares
+`dsh.bundle.patch` → `cordis.patch.yml`). Install it directly from GitHub:
 
 ```bash
-git clone https://github.com/<you>/dsh-ga-browser-bridge.git
-cd dsh-ga-browser-bridge
-npm install && npm run build
-# copy the package dir into your profile's node_modules, then add the
-# cordis.patch.yml insert row (see Configuration)
+dsh plugin add github:AI-J-IN/dsh-ga-browser-bridge
 ```
+
+The bundle's `cordis.patch.yml` is applied automatically on install — no
+manual profile edits. (Verified against the DSH plugin publishing guide:
+GitHub installs of the form `github:user/repo` are supported.)
+
+Other supported ways:
+
+```bash
+# local directory (e.g. after git clone)
+dsh plugin add ./dsh-ga-browser-bridge
+
+# npm tarball
+npm pack   # then install the .tgz
+```
+
+Manual alternative (clone + copy into the profile's node_modules, then add
+the `cordis.patch.yml` insert row — see Configuration) also works but is
+not needed for normal installs.
 
 ### Configuration
 
@@ -174,7 +182,7 @@ The legacy `ga-browser-bridge` MCP row and this plugin register the **same
 
 ```bash
 npm install
-npm run build     # tsc -> dist/
+npm run build     # tsc -> lib/
 npm test          # jest (mocked CDP; no real Chrome needed)
 ```
 
@@ -222,7 +230,7 @@ DSH ──原生工具──> 插件 ──CDP (WebSocket)──> Chrome (--remo
 ### 前置条件
 
 - DeepSeek Harness（desktop profile 或任何能装 bundle 的 profile）
-- Node.js >= 18（仅构建需要；仓库发布物自带 `dist/`）
+- Node.js >= 18（仅构建需要；仓库发布物自带 `lib/`）
 - Google Chrome 或 Microsoft Edge
 - **首次使用需要重启一次 Chrome** 带调试端口（或交给插件自动拉起）。
   Chrome 只在启动那一刻开调试端口，已经在跑的实例无法事后补开。
@@ -336,7 +344,7 @@ google-chrome --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1
 
 ```bash
 npm install
-npm run build     # tsc -> dist/
+npm run build     # tsc -> lib/
 npm test          # jest（mock CDP，不需要真 Chrome）
 ```
 

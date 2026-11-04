@@ -1,7 +1,7 @@
 // Live smoke test against a real Chrome with --remote-debugging-port=9222.
 // Run AFTER the user has restarted Chrome with the debug port.
 // Exercises all five tools exactly as the DSH plugin would.
-import { createToolContext, TOOLS } from '../dist/tools/index.js'
+import { createToolContext, TOOLS } from '../lib/tools/index.js'
 
 const ctx = createToolContext({ host: '127.0.0.1', port: 9222 })
 
