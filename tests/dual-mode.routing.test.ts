@@ -404,23 +404,25 @@ describe('dual-mode routing: forced transports', () => {
   // 'extension' PREFERS the bridge. When none is available it must degrade to
   // CDP rather than error: a user without the MV3 extension installed still
   // has to get a working plugin (same rule as tests/extension.test.ts #13).
-  test("transport 'extension' degrades to CDP when no bridge exists", async () => {
+  test("transport 'extension' reports an error when no bridge exists", async () => {
+    // CONTRACT CHANGE (external report): forced extension mode must FAIL LOUDLY.
+    // Silently using the debug port told the user "Chrome is already running
+    // without a debug port" and sent them chasing the wrong thing.
     const ctx = ctxWith(cdpWithTwoTabs(), null, 'extension');
     const out = await call('browser_tabs', { action: 'list' }, ctx);
-    expect(out.startsWith('[error]')).toBe(false);
-    // CDP target ids, not chrome.tabs ids.
-    expect(JSON.parse(out).tabs[0].id).toBe('1');
+    expect(out.startsWith('[error]')).toBe(true);
+    expect(out).toMatch(/extension/i);
   });
 
-  test("transport 'extension' degrades to CDP when the bridge is disconnected", async () => {
+  test("transport 'extension' reports an error when the bridge is disconnected", async () => {
     const bridge = new FakeExtensionBridge();
     bridge.connected = false;
     bridge.tabs = extTabs();
     const ctx = ctxWith(cdpWithTwoTabs(), bridge, 'extension');
     const out = await call('browser_scan', {}, ctx);
-    expect(out.startsWith('[error]')).toBe(false);
-    // The disconnected bridge must not have served the call.
-    expect(bridge.calls).toHaveLength(0);
+    expect(out.startsWith('[error]')).toBe(true);
+    expect(out).toMatch(/extension/i);
+    expect(out).not.toMatch(/already running without a debug port/i);
   });
 
   test("transport 'extension' with a connected bridge uses it", async () => {

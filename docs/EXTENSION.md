@@ -27,11 +27,27 @@ Chrome Web Store, so load it unpacked:
 
 1. Get the files: `git clone https://github.com/AI-J-IN/dsh-ga-browser-bridge.git`
    (or download the repo ZIP and extract it).
-2. Open `chrome://extensions` in Chrome.
-3. Turn on **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the `extension` folder
-   (*not* the repository root — the folder that contains `manifest.json`).
-5. The extension appears as **DSH Browser Bridge**. Pin it if you like.
+2. **Copy the `extension` folder somewhere short and stable** (strongly
+   recommended — see the warning below):
+   ```powershell
+   Copy-Item -Recurse -Force .\dsh-ga-browser-bridge\extension `
+     "$env:LOCALAPPDATA\DSH-Browser-Bridge-Extension"
+   ```
+3. Open `chrome://extensions` in Chrome.
+4. Turn on **Developer mode** (top-right toggle).
+5. Click **Load unpacked** and select that folder — the one that **contains
+   `manifest.json`** (e.g. `%LOCALAPPDATA%\DSH-Browser-Bridge-Extension`).
+   Selecting the repository root, or its parent, fails with
+   "manifest file is missing or unreadable".
+6. The extension appears as **DSH Browser Bridge**. Pin it if you like.
+
+> **Why copy it out of `node_modules`:** if you installed the plugin into a
+> DSH profile, the natural-looking path is
+> `%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-ga-browser-bridge\extension`.
+> That path is long and deeply nested (easy to select one level too high), and
+> **reinstalling or rebuilding the profile can remove it**, leaving Chrome with
+> a dead "unpacked" extension that silently stops connecting. A folder such as
+> `%LOCALAPPDATA%\DSH-Browser-Bridge-Extension` survives all of that.
 
 Chromium-based browsers work the same way (`edge://extensions`,
 `brave://extensions`, …).
@@ -95,13 +111,41 @@ the plugin's listener.
 
 ## 5. Limitations you should know
 
+> **Before you test anything:** right after loading the extension you are
+> probably still on `chrome://extensions`. **Chrome forbids any extension from
+> driving its own internal pages**, so the first tool call there fails with
+> `NON_DEBUGGABLE_PAGE`. That is not an install failure — switch to a normal
+> website tab and try again.
+
 | Limitation | Why |
 |---|---|
+| `chrome://` pages cannot be driven | `chrome://settings`, `chrome://extensions`, the Chrome Web Store, other extensions' pages and `devtools://` are all off-limits to `chrome.debugger`. Error code: `NON_DEBUGGABLE_PAGE`. |
+| `Browser.*` / browser-level `Target.*` are unavailable | `chrome.debugger` attaches to a TAB, so only tab-scoped CDP domains exist. See the domain table below. |
 | A yellow "started debugging" bar appears | Chrome requires it whenever `chrome.debugger` is attached. |
 | A tab with DevTools already open cannot be driven | Chrome allows only one debugger per tab. Close DevTools for that tab. |
 | Enterprise policy can block it | Machine policy may disable the `debugger` permission; the extension then reports `ATTACH_FAILED`. |
 | The service worker can sleep | MV3 workers are unloaded when idle; the extension reconnects on demand, so the first call after a pause may take an extra moment. |
 | Extension reload drops the session | Reloading/updating the extension disconnects it; reopen a tool call to reconnect. |
+
+### Which CDP commands work in each transport
+
+`browser_cdp` reaches different scopes depending on the transport — this is
+the essential difference between them, not a bug.
+
+| CDP domain | Extension mode | CDP debug-port mode |
+|---|---|---|
+| `Runtime.*` (`Runtime.evaluate`, …) | ✅ | ✅ |
+| `Page.*` (`Page.navigate`, `Page.captureScreenshot`, …) | ✅ | ✅ |
+| `Network.*` (`Network.enable`, `Network.getResponseBody`, …) | ✅ | ✅ |
+| `DOM.*`, `CSS.*`, `Input.*`, `Emulation.*` | ✅ | ✅ |
+| `Storage.*` | ✅ | ✅ |
+| `Browser.*` (`Browser.getVersion`, …) | ❌ `'Browser.getVersion' wasn't found` | ✅ |
+| `Target.*` at browser level | ❌ | ✅ |
+
+**Why:** `chrome.debugger` attaches to a single tab, so the browser-level
+target domain simply does not exist for it. If you need `Browser.*` (version
+info, browser-level target management), use `transport: cdp` with a debug
+port, or derive the same facts from a page command.
 
 ## 6. Troubleshooting
 
@@ -114,6 +158,26 @@ the plugin's listener.
 | Tools still use the debug port | `transport` is `cdp`, or the extension never completed its handshake. Check `transport: auto` and the options page. |
 
 ## 7. Security notes
+
+### `browser_cookies` returns far more than "the tab's origin"
+
+The tool description says "cookies for the tab's origin", but in **extension
+mode the underlying `chrome.cookies.getAll` can read every cookie the browser
+holds** — including on pages with no host (e.g. `about:blank`), where no
+origin filtering happens at all. In practice that includes Google/YouTube
+`SID`/`__Secure-1PSID`, payment and OAuth session tokens, and every site you
+are logged into.
+
+This is the permission model, not a defect: the extension is declared with
+`cookies` + `<all_urls>` so it can act on arbitrary sites. Treat tool output
+as **credential material**:
+
+- Do not paste cookie output into public issues, chats, or logs.
+- When you are not using the bridge, **disable the extension** — a disabled
+  extension cannot attach or read cookies, which removes the exposure entirely.
+- Prefer `transport: cdp` if you only need page interaction: the debug-port
+  path is scoped to the browser you launched for it.
+
 
 - The listener binds **127.0.0.1 only**; it is not reachable from the network.
 - The extension has `<all_urls>` host permission and `cookies`/`debugger`

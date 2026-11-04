@@ -624,7 +624,7 @@ describe('C. dual-mode tool routing', () => {
   )
 
   it(
-    '13. with no extension available the tools fall back to CDP and do not throw',
+    '13. with no extension available, auto mode still falls back to CDP and does not throw',
     whenWired('13', async () => {
       const conn = twoTabConnection()
       const ctx = createToolContext({
@@ -634,7 +634,7 @@ describe('C. dual-mode tool routing', () => {
         getOrCreateBrowser: async () => {},
         defaultTimeoutMs: 30_000,
         // Bridge unavailable: the routing must degrade to CDP, not throw.
-        ...({ transport: 'extension', getExtensionBridge: () => null } as any),
+        ...({ transport: 'auto', getExtensionBridge: () => null } as any),
       } as any)
 
       const raw = await callTool('browser_tabs', { action: 'list' }, ctx)

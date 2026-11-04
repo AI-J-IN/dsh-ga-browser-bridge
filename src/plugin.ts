@@ -156,6 +156,20 @@ export function apply(ctx: any, rawConfig?: PluginConfig | null) {
     extensionPort,
   })
 
+  // PRE-WARM the extension listener. The bridge only starts listening when
+  // getExtensionBridge() is first called, and the MV3 service worker takes a
+  // few seconds to dial back in (exponential backoff after Chrome evicts an
+  // idle worker) — measured 1–5s in practice. Without this, the FIRST tool
+  // call after every DSH start always finds no extension connected and fails,
+  // while the user has done nothing wrong. Listening from mount time gives the
+  // worker the whole time the user needs to open a tab and ask for something.
+  if (transport !== 'cdp' && extensionPort !== 0) {
+    void Promise.resolve(context.getExtensionBridge?.()).catch(() => {
+      // No extension module, port busy, whatever — the first tool call will
+      // report it properly; mounting must never fail because of this.
+    })
+  }
+
   const disposers: Array<() => void> = []
   for (const spec of Object.values(TOOLS)) {
     disposers.push(ctx.tools.register(toRegisteredTool(spec)))
