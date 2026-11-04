@@ -1,5 +1,20 @@
 export declare const name = "ga-browser-bridge";
 export declare const inject: string[];
+/**
+ * Config schema for the cordis loader and the DSH settings UI.
+ *
+ * Declaring a schema matters for two reasons:
+ *  1. The loader validates/coerces the row's `config` and fills defaults, so a
+ *     config-less row does not reach apply() as `null`;
+ *  2. DSH can render the fields instead of showing raw YAML.
+ *
+ * `@deepseek-ai/schemastery` is resolved at import time with a plain-object
+ * fallback: a deployment that does not hoist the package still loads the
+ * plugin (the loader accepts a plain schema object), it just loses validation
+ * and defaults from the schema. The runtime defaults are ALSO applied inside
+ * apply() so behaviour never depends on the schema being present.
+ */
+export declare const Config: any;
 export interface PluginConfig {
     /** CDP debug host. Default '127.0.0.1'. */
     host?: string;

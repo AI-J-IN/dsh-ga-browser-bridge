@@ -10,7 +10,14 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
-  "keywords": ["dsh", "plugin", "chrome", "cdp", "browser-automation", "mcp"],
+  "keywords": [
+    "dsh",
+    "plugin",
+    "chrome",
+    "cdp",
+    "browser-automation",
+    "mcp"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -38,8 +45,11 @@
       "patch": "./cordis.patch.yml"
     }
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {

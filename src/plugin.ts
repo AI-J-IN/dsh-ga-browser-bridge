@@ -9,10 +9,59 @@
 // are byte-compatible with the legacy ga-browser-bridge MCP bridge
 // (br_mcp.py) so existing prompts and agent memories keep working.
 
+import { createRequire } from 'node:module'
 import { TOOLS, createToolContext, type ToolSpec } from './tools/index.js'
 
 export const name = 'ga-browser-bridge'
 export const inject = ['tools']
+
+/**
+ * Config schema for the cordis loader and the DSH settings UI.
+ *
+ * Declaring a schema matters for two reasons:
+ *  1. The loader validates/coerces the row's `config` and fills defaults, so a
+ *     config-less row does not reach apply() as `null`;
+ *  2. DSH can render the fields instead of showing raw YAML.
+ *
+ * `@deepseek-ai/schemastery` is resolved at import time with a plain-object
+ * fallback: a deployment that does not hoist the package still loads the
+ * plugin (the loader accepts a plain schema object), it just loses validation
+ * and defaults from the schema. The runtime defaults are ALSO applied inside
+ * apply() so behaviour never depends on the schema being present.
+ */
+export const Config: any = buildConfigSchema()
+
+function buildConfigSchema(): any {
+  const plain = {
+    type: 'object',
+    properties: {
+      host: { type: 'string', default: '127.0.0.1' },
+      port: { type: 'number', default: 9222 },
+      autoLaunchChrome: { type: 'boolean', default: true },
+      extensionPort: { type: 'number', default: 18789 },
+      transport: { type: 'string', enum: ['auto', 'extension', 'cdp'], default: 'auto' },
+    },
+  }
+
+  // Try schemastery (gives validation + settings UI rendering).
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = createRequire(import.meta.url)('@deepseek-ai/schemastery')
+    const z = mod?.default ?? mod
+    if (z && typeof z.object === 'function') {
+      return z.object({
+        host: z.string().default('127.0.0.1'),
+        port: z.number().default(9222),
+        autoLaunchChrome: z.boolean().default(true),
+        extensionPort: z.number().default(18789),
+        transport: z.union([z.const('auto'), z.const('extension'), z.const('cdp')]).default('auto'),
+      })
+    }
+  } catch {
+    // schemastery unavailable — fall through to the plain object.
+  }
+  return plain
+}
 
 export interface PluginConfig {
   /** CDP debug host. Default '127.0.0.1'. */
