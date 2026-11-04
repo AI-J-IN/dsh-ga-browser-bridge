@@ -18,8 +18,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
     },
     "./package.json": "./package.json",
     "./cordis.patch.yml": "./cordis.patch.yml"
@@ -29,7 +29,9 @@
     "README.md",
     "README.zh.md",
     "cordis.patch.yml",
-    "lib"
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
+    "!lib/**/*.js.map"
   ],
   "dsh": {
     "bundle": {
