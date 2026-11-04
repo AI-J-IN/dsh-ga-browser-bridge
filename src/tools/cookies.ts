@@ -14,12 +14,19 @@
 import type { ToolContext } from './index.js';
 import { noBrowserError, unexpectedError } from './errors.js';
 import { resolveToolTab, unwrap } from './cdp.js';
+import { routeTransport, browserCookiesViaExtension } from './extension-mode.js';
 
 export async function browser_cookies(
   args: Record<string, any>,
   ctx: ToolContext,
 ): Promise<string> {
   try {
+    // DUAL MODE: connected extension wins; getCookies({url}) applies the same
+    // origin scoping the CDP path gets from its domain-suffix filter.
+    const route = await routeTransport(ctx);
+    if (route.error !== undefined) return route.error;
+    if (route.bridge) return await browserCookiesViaExtension(args, ctx, route.bridge);
+
     const conn = await ctx.getConnection();
     const tab = await resolveToolTab(conn, args?.tab_id, ctx);
     if (!tab) return noBrowserError();

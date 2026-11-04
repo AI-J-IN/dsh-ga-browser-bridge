@@ -16,6 +16,7 @@
 import type { ToolContext } from './index.js';
 import { errPrefix, noBrowserError, unexpectedError } from './errors.js';
 import { resolveToolTab, exceptionDetailsOf, evaluateValueOf } from './cdp.js';
+import { routeTransport, browserExecuteJsViaExtension } from './extension-mode.js';
 
 export async function browser_execute_js(
   args: Record<string, any>,
@@ -26,6 +27,12 @@ export async function browser_execute_js(
     if (typeof script !== 'string' || script.trim() === '') {
       return errPrefix('empty script');
     }
+
+    // DUAL MODE: connected extension wins; a PAGE_ERROR from the bridge is
+    // rendered as "[error] <exception text>", like the exceptionDetails path.
+    const route = await routeTransport(ctx);
+    if (route.error !== undefined) return route.error;
+    if (route.bridge) return await browserExecuteJsViaExtension(args, ctx, route.bridge);
 
     const conn = await ctx.getConnection();
     const tab = await resolveToolTab(conn, args?.tab_id, ctx);

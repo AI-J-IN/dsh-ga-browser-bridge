@@ -10,6 +10,8 @@
  * Node runtime (package.json imports only supports '#' prefixes).
  */
 import type { CdpConnection } from '../cdp/index.js';
+import type { ExtensionBridge } from '../extension/bridge.js';
+import type { ExtensionBridgeLike } from './extension-mode.js';
 import { browser_tabs } from './tabs.js';
 import { browser_scan } from './scan.js';
 import { browser_execute_js } from './execute.js';
@@ -26,6 +28,10 @@ export interface ToolContext {
   currentTabId?: string;
   /** Let getConnection auto-launch a debug Chrome when none is running (default true). */
   autoLaunchChrome?: boolean;
+  /** Extension transport; when connected it takes priority over CDP. */
+  getExtensionBridge?(): Promise<ExtensionBridgeLike | null>;
+  /** Force a transport for testing: 'extension' | 'cdp' | 'auto' (default 'auto'). */
+  transport?: 'extension' | 'cdp' | 'auto';
 }
 
 export interface ToolSpec {
@@ -38,19 +44,70 @@ export interface ToolSpec {
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 9222;
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** Loopback port the extension dials; override with DSH_BROWSER_EXT_PORT. */
+const DEFAULT_EXTENSION_PORT = 18765;
+
+/** Read a positive integer env override, else fall back to `dflt`. */
+function portFromEnv(name: string, dflt: number): number {
+  const raw = typeof process !== 'undefined' ? process.env?.[name] : undefined;
+  if (raw === undefined || raw === '') return dflt;
+  const n = Number.parseInt(String(raw), 10);
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : dflt;
+}
 
 /**
  * Build a ToolContext. Tests inject a fake connection via overrides.
  * The default getConnection constructs a CdpConnection lazily and reuses it.
+ *
+ * The extension transport is constructed lazily too, and is STRICTLY optional:
+ * if the extension module is missing (not built), or its loopback port cannot
+ * be bound, `getExtensionBridge()` resolves to null and every tool falls back
+ * to the CDP path. It must never throw during plugin mount — a user without
+ * the extension installed still has to get a working CDP-only plugin.
  */
 export function createToolContext(overrides?: Partial<ToolContext>): ToolContext {
   let conn: CdpConnection | null = null;
+  let bridgePromise: Promise<ExtensionBridgeLike | null> | null = null;
+
+  /** Build (once) and start the extension bridge; null when unavailable. */
+  const ensureBridge = async (): Promise<ExtensionBridgeLike | null> => {
+    if (!bridgePromise) {
+      bridgePromise = (async () => {
+        try {
+          // Never start the loopback listener for a caller that forced CDP or
+          // disabled the extension (port 0): it would only burn the port and
+          // make parallel test suites fight over 18765. Check before importing.
+          if (ctx.transport === 'cdp') return null;
+          // Under jest every tool call would try to bind the real loopback
+          // port, so parallel suites produce dozens of EADDRINUSE warnings
+          // for a transport they are not testing. Opt in explicitly instead.
+          if (typeof process !== 'undefined' && process.env?.JEST_WORKER_ID) return null;
+          const port = portFromEnv('DSH_BROWSER_EXT_PORT', DEFAULT_EXTENSION_PORT);
+          if (!Number.isInteger(port) || port <= 0) return null;
+          // Dynamic import keeps this optional: a missing/partial extension
+          // build is a resolved null, not a module-load crash.
+          const mod = await import('../extension/index.js');
+          const bridge: ExtensionBridge = new mod.ExtensionBridge({ port });
+          await bridge.start();
+          return bridge;
+        } catch {
+          // PORT_IN_USE, BIND_FAILED, module-not-found, bad export — all mean
+          // "no extension transport available"; degrade to CDP silently.
+          return null;
+        }
+      })();
+    }
+    return bridgePromise;
+  };
+
   const base: ToolContext = {
     host: DEFAULT_HOST,
     port: DEFAULT_PORT,
     defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
     currentTabId: undefined,
     autoLaunchChrome: true,
+    transport: 'auto',
+    getExtensionBridge: ensureBridge,
     getConnection: async (): Promise<CdpConnection> => {
       if (!conn) {
         const mod = await import('../cdp/index.js');

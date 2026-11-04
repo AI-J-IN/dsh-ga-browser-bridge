@@ -10,6 +10,7 @@
  * Node runtime (package.json imports only supports '#' prefixes).
  */
 import type { CdpConnection } from '../cdp/index.js';
+import type { ExtensionBridgeLike } from './extension-mode.js';
 export interface ToolContext {
     host: string;
     port: number;
@@ -20,6 +21,10 @@ export interface ToolContext {
     currentTabId?: string;
     /** Let getConnection auto-launch a debug Chrome when none is running (default true). */
     autoLaunchChrome?: boolean;
+    /** Extension transport; when connected it takes priority over CDP. */
+    getExtensionBridge?(): Promise<ExtensionBridgeLike | null>;
+    /** Force a transport for testing: 'extension' | 'cdp' | 'auto' (default 'auto'). */
+    transport?: 'extension' | 'cdp' | 'auto';
 }
 export interface ToolSpec {
     name: string;
@@ -30,6 +35,12 @@ export interface ToolSpec {
 /**
  * Build a ToolContext. Tests inject a fake connection via overrides.
  * The default getConnection constructs a CdpConnection lazily and reuses it.
+ *
+ * The extension transport is constructed lazily too, and is STRICTLY optional:
+ * if the extension module is missing (not built), or its loopback port cannot
+ * be bound, `getExtensionBridge()` resolves to null and every tool falls back
+ * to the CDP path. It must never throw during plugin mount — a user without
+ * the extension installed still has to get a working CDP-only plugin.
  */
 export declare function createToolContext(overrides?: Partial<ToolContext>): ToolContext;
 /**

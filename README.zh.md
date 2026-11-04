@@ -47,12 +47,30 @@ DSH ──原生工具──> 插件 ──CDP (WebSocket)──> Chrome (--remo
 
 - 五个工具：`browser_tabs` / `browser_scan` / `browser_execute_js` /
   `browser_cdp` / `browser_cookies`
-- 复用你的**默认 Chrome profile**——已登录的站点全部保持登录态
-- 调试端口没开时自动拉起带端口的 Chrome
+- **两种传输，同一套工具契约：**
+  - **扩展模式**——直接驱动你**已经打开的** Chrome，沿用当前登录态，
+    不用重启浏览器，也不受 Chrome 136+ 默认 profile 限制影响。只需装一次
+    随仓库附带的扩展 → [docs/EXTENSION.md](docs/EXTENSION.md)
+  - **CDP 调试端口模式**——无需安装额外东西；适合无头/CI/服务器；
+    在 Chrome 136+ 上需要独立 profile
+- 复用登录态：扩展模式直接用手上这个浏览器；CDP 模式通过复制 profile 实现
+- 调试端口没开时自动拉起带端口的 Chrome（CDP 模式）
 - `browser_cdp` 原始 CDP 透传：截图、可信输入、文件上传、跨域 iframe、
   shadow DOM
 - 批量 CDP 命令，支持 `$N.path` 引用前序结果
 - TypeScript + ESM，唯一运行时依赖 `ws`
+
+### 该用哪种模式？
+
+| 你的需求 | 用哪个 |
+|---|---|
+| 操作你现在正在用的、已登录的浏览器 | **扩展模式** |
+| 不想装任何东西，或无头/CI/服务器场景 | **CDP 调试端口模式** |
+| 两者都要（有扩展就优先，没有就回落） | `transport: auto`（默认） |
+
+「为什么不能直接连我开着的 Chrome？」——答案就是扩展模式。
+[docs/EXTENSION.md](docs/EXTENSION.md) 讲了安装步骤、会看到的黄色调试提示条，
+以及各种限制。
 
 ### 前置条件
 

@@ -20,6 +20,7 @@
  */
 import type { ToolContext } from './index.js';
 import { errPrefix, noBrowserError, unexpectedError } from './errors.js';
+import { routeTransport, browserCdpViaExtension } from './extension-mode.js';
 
 // ---------------------------------------------------------------------------
 // Shared connection/session shapes (structural; the cdp layer owns the real
@@ -157,13 +158,23 @@ export async function browser_cdp(
 ): Promise<string> {
   try {
     const commands = args?.commands;
+    if (!(Array.isArray(commands) && commands.length > 0)) {
+      const method = args?.method;
+      if (!method || String(method).trim() === '') {
+        return errPrefix('need method or commands');
+      }
+    }
+
+    // DUAL MODE: connected extension wins for both single and batch; the
+    // extension runner reuses this file's resolveRefs for "$N.path" refs.
+    const route = await routeTransport(ctx);
+    if (route.error !== undefined) return route.error;
+    if (route.bridge) return await browserCdpViaExtension(args, ctx, route.bridge);
+
     if (Array.isArray(commands) && commands.length > 0) {
       return await runBatch(ctx, commands as BatchCommand[], intArg(args?.timeout, 30));
     }
     const method = args?.method;
-    if (!method || String(method).trim() === '') {
-      return errPrefix('need method or commands');
-    }
     const conn = await ctx.getConnection();
     const tab = await resolveToolTab(conn, args?.tab_id, ctx);
     if (!tab) return noBrowserError();

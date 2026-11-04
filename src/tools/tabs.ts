@@ -17,10 +17,15 @@
  * list/find read conn.listTabs(). The underlying @cdp/json functions exist
  * in the cdp layer but are invoked by CdpConnection internally — tools do
  * not import them.
+ *
+ * DUAL MODE: when the extension transport is connected it wins (see
+ * routeTransport in ./extension-mode.js); otherwise everything below runs
+ * unchanged against CDP.
  */
 import { tabRow, type CdpLikeConnection } from './cdp.js';
 import type { ToolContext } from './index.js';
 import { errPrefix, noBrowserError, unexpectedError } from './errors.js';
+import { routeTransport, browserTabsViaExtension } from './extension-mode.js';
 
 const ACTIONS = 'list/find/switch/create/close';
 
@@ -37,6 +42,11 @@ export async function browser_tabs(
   ctx: ToolContext,
 ): Promise<string> {
   try {
+    // Transport decision first: a connected extension takes priority over CDP.
+    const route = await routeTransport(ctx);
+    if (route.error !== undefined) return route.error;
+    if (route.bridge) return await browserTabsViaExtension(args, ctx, route.bridge);
+
     const action = String(args?.action ?? 'list').toLowerCase();
     const conn = (await ctx.getConnection()) as unknown as TabOpsConnection;
 

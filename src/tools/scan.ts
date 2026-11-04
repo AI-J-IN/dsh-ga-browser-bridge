@@ -19,6 +19,7 @@
 import type { ToolContext } from './index.js';
 import { noBrowserError, unexpectedError } from './errors.js';
 import { resolveToolTab, exceptionDetailsOf, evaluateValueOf } from './cdp.js';
+import { routeTransport, browserScanViaExtension } from './extension-mode.js';
 
 const READY_POLL_COUNT = 50; // 50 * 200ms = ~10s max wait
 
@@ -27,6 +28,11 @@ export async function browser_scan(
   ctx: ToolContext,
 ): Promise<string> {
   try {
+    // DUAL MODE: connected extension wins; snapshot() carries text_only/maxchars.
+    const route = await routeTransport(ctx);
+    if (route.error !== undefined) return route.error;
+    if (route.bridge) return await browserScanViaExtension(args, ctx, route.bridge);
+
     const conn = await ctx.getConnection();
     const tab = await resolveToolTab(conn, args?.tab_id, ctx);
     if (!tab) return noBrowserError();

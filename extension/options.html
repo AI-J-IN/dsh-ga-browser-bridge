@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DSH Browser Bridge — Options</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #1a2233;
+        --muted: #5b667c;
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --border: #d8dde6;
+        --accent: #f29e2e;
+        --ok: #1b7f3b;
+        --bad: #b3261e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e9edf4;
+          --muted: #9aa6bd;
+          --bg: #131722;
+          --card: #1a2233;
+          --border: #2d3a52;
+        }
+        :root { --ok: #58d68d; --bad: #ff6b6b; }
+      }
+      body {
+        margin: 0;
+        padding: 28px 20px;
+        font: 14px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      main {
+        max-width: 520px;
+        margin: 0 auto;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px 26px 22px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 4px;
+        letter-spacing: -0.01em;
+      }
+      p.lede {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .row > div {
+        flex: 1 1 auto;
+      }
+      .row > div.port {
+        flex: 0 0 130px;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: #1a2233;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--fg);
+        border-color: var(--border);
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      #saved {
+        color: var(--muted);
+        font-size: 13px;
+        min-height: 1.2em;
+      }
+      .status {
+        border-top: 1px solid var(--border);
+        padding-top: 14px;
+        font-size: 13px;
+      }
+      .status-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: 0 0 auto;
+      }
+      .dot.connected {
+        background: var(--ok);
+      }
+      .dot.connecting {
+        background: var(--accent);
+      }
+      .dot.disconnected {
+        background: var(--bad);
+      }
+      .detail {
+        color: var(--muted);
+        margin-top: 6px;
+        word-break: break-word;
+      }
+      .detail.error {
+        color: var(--bad);
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        background: color-mix(in srgb, var(--border) 45%, transparent);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .note {
+        margin-top: 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>DSH Browser Bridge</h1>
+      <p class="lede">
+        This extension dials out to the DSH Browser Bridge plugin running on your machine. It does not listen on a
+        port itself.
+      </p>
+
+      <div class="row">
+        <div>
+          <label for="host">Host</label>
+          <input id="host" type="text" spellcheck="false" autocomplete="off" placeholder="127.0.0.1" />
+        </div>
+        <div class="port">
+          <label for="port">Port</label>
+          <input id="port" type="number" min="1" max="65535" step="1" placeholder="18765" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="save" type="button">Save</button>
+        <button id="reconnect" type="button" class="secondary">Reconnect now</button>
+        <span id="saved" role="status" aria-live="polite"></span>
+      </div>
+
+      <section class="status" aria-live="polite">
+        <div class="status-line">
+          <span id="dot" class="dot disconnected"></span>
+          <span id="state">Checking…</span>
+        </div>
+        <div id="url" class="detail"></div>
+        <div id="error" class="detail error" hidden></div>
+      </section>
+
+      <p class="note">
+        Defaults: <code>127.0.0.1</code> and port <code>18765</code>. Change the port only if the plugin was started
+        with a different <code>DSH_BROWSER_EXT_PORT</code>.
+      </p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

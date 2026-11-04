@@ -44,13 +44,32 @@ DSH ──native tools──> plugin ──CDP (WebSocket)──> Chrome (--remo
 
 - Five tools: `browser_tabs`, `browser_scan`, `browser_execute_js`,
   `browser_cdp`, `browser_cookies`
+- **Two transports, one tool contract:**
+  - **Extension transport** — drives the Chrome you *already have open*, with
+    your existing logins, no restart, and unaffected by the Chrome 136+
+    default-profile restriction. Requires installing the bundled extension
+    once → [docs/EXTENSION.md](docs/EXTENSION.md)
+  - **CDP debug-port transport** — no extra install; works headless and on
+    servers; needs a separate profile on Chrome 136+
 - Reuses your **default Chrome profile** — everything you are already logged
-  into keeps working
-- Auto-launches Chrome with the debug port when it is closed
+  into keeps working (extension transport), or a copied profile (CDP transport)
+- Auto-launches Chrome with the debug port when it is closed (CDP transport)
 - Raw CDP passthrough (`browser_cdp`) for screenshots, trusted input, file
   upload, cross-origin iframes, shadow DOM
 - Batch CDP commands with `$N.path` references to prior results
 - TypeScript, ESM, single runtime dependency (`ws`)
+
+### Which transport should I use?
+
+| You want… | Use |
+|---|---|
+| To drive the browser you are already using, logged in as you | **Extension** |
+| No install step, headless/CI/servers | **CDP debug port** |
+| Both (try extension, fall back) | `transport: auto` (default) |
+
+The extension transport is the answer to "why can't it just attach to my open
+Chrome?" — [docs/EXTENSION.md](docs/EXTENSION.md) explains the install, the
+yellow "started debugging" bar you will see, and the limitations.
 
 ### Prerequisites
 

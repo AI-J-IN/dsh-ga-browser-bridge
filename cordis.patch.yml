@@ -11,10 +11,26 @@
     - id: ga-browser-bridge
       name: dsh-ga-browser-bridge
       config:
-        # host/port of the Chrome CDP debug endpoint.
+        # ── Transport selection ──────────────────────────────────────────
+        # 'auto'      : use the Chrome extension when it is connected,
+        #               otherwise fall back to the CDP debug port. (default)
+        # 'extension' : require the extension (recommended for everyday use:
+        #               it drives the browser you already have open, with your
+        #               existing logins, and is unaffected by the Chrome 136+
+        #               default-profile restriction).
+        # 'cdp'       : debug port only.
+        # transport: auto
+
+        # ── Extension transport ──────────────────────────────────────────
+        # Loopback port this plugin listens on; the "DSH Browser Bridge"
+        # extension dials in to it. Set to 0 to disable the extension.
+        # extensionPort: 18765
+
+        # ── CDP transport (fallback / headless) ──────────────────────────
         # host: '127.0.0.1'
         # port: 9222
         # When the debug port is closed, launch Chrome with
-        # --remote-debugging-port reusing the user's profile (login state
-        # preserved). Set false to fail fast with instructions instead.
+        # --remote-debugging-port. On Chrome 136+ this only works together
+        # with a separate DSH_BROWSER_USER_DATA_DIR (the default profile is
+        # refused); use the extension transport instead for normal use.
         # autoLaunchChrome: true
