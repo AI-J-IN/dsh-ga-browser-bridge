@@ -1,0 +1,20 @@
+# dsh-ga-browser-bridge bundle layer.
+# Applied automatically when the package is installed as a DSH bundle
+# (package.json declares dsh.bundle.patch). Users who install via
+#   dsh plugin add <github-repo>
+# get this wiring with no manual cordis.patch.yml edits.
+#
+# IMPORTANT: do not mount this together with the legacy ga-browser-bridge
+# MCP row (serverName: ga-browser-bridge / br_mcp.py) — both register the
+# same browser_* tool names. Disable or remove the legacy row first.
+- insert:
+    - id: ga-browser-bridge
+      name: dsh-ga-browser-bridge
+      config:
+        # host/port of the Chrome CDP debug endpoint.
+        # host: '127.0.0.1'
+        # port: 9222
+        # When the debug port is closed, launch Chrome with
+        # --remote-debugging-port reusing the user's profile (login state
+        # preserved). Set false to fail fast with instructions instead.
+        # autoLaunchChrome: true

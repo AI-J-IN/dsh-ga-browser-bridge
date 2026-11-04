@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "types": ["node", "jest"],
+    "baseUrl": ".",
+    "paths": {
+      "@cdp/*": ["src/cdp/*"],
+      "@tools/*": ["src/tools/*"]
+    }
+  },
+  "include": ["tests/**/*.ts", "src/**/*.ts"]
+}
