@@ -11,6 +11,12 @@ talks CDP to the Chrome you already use.
 > (`br_mcp.py` + GA master + `tmwd_cdp_bridge` extension). The five
 > `browser_*` tools keep the **same names, same parameters, same return
 > shapes**, so existing prompts and agent memories keep working.
+>
+> **Acknowledgment**: the design, the tool semantics, and the original
+> real-browser-bridge concept come from the **GA (GenericAgent) project** —
+> its `TMWebDriver` / `tmwd_cdp_bridge` extension / `br_mcp.py` bridge proved
+> the approach and defined the `browser_*` tool contract this plugin keeps
+> byte-compatible. Thanks to the GA project for the foundation.
 
 ---
 
@@ -196,6 +202,11 @@ DSH ──MCP(stdio)──> br_mcp.py ──HTTP──> GA master :18766 ──W
 ```
 DSH ──原生工具──> 插件 ──CDP (WebSocket)──> Chrome (--remote-debugging-port=9222)
 ```
+
+> **致谢**：本插件的设计、工具语义与「真实浏览器桥」概念来自 **GA
+> （GenericAgent）项目**——它的 `TMWebDriver` / `tmwd_cdp_bridge` 扩展 /
+> `br_mcp.py` 桥验证了这条路线，并定义了本插件保持字节级兼容的
+> `browser_*` 工具契约。感谢 GA 项目打下的基础。
 
 ### 特性
 

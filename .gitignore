@@ -1,5 +1,9 @@
 node_modules/
-dist/
 *.log
 .DS_Store
 coverage/
+# dist/ is INTENTIONALLY committed (compiled .js + .d.ts): DSH bundle
+# installs do not run npm install/build, so the output must ship in the repo.
+# Source maps stay ignored — not needed at runtime.
+dist/**/*.js.map
+!dist/
